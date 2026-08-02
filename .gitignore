@@ -1,4 +1,75 @@
-# OS generated files
+# ============================================================
+# OwnStay CMS — Industry-Standard WordPress .gitignore
+# ============================================================
+# Only your custom plugin & theme are tracked.
+# WordPress core, secrets, and uploads are all excluded.
+# ============================================================
+
+# --------------------------
+# 🔴 SECRETS — Never commit
+# --------------------------
+wp-config.php
+.env
+.env.*
+!.env.example
+
+# --------------------------
+# 🔴 WordPress Core — Install separately, not via git
+# --------------------------
+/wp-admin/
+/wp-includes/
+
+# WordPress root files (core)
+/index.php
+/license.txt
+/readme.html
+/wp-activate.php
+/wp-blog-header.php
+/wp-comments-post.php
+/wp-cron.php
+/wp-links-opml.php
+/wp-load.php
+/wp-login.php
+/wp-mail.php
+/wp-settings.php
+/wp-signup.php
+/wp-trackback.php
+/xmlrpc.php
+/wp-config-sample.php
+
+# --------------------------
+# 🔴 Uploads — User content, not code
+# --------------------------
+wp-content/uploads/
+wp-content/blogs.dir/
+
+# --------------------------
+# 🔴 Cache & Generated Files
+# --------------------------
+wp-content/cache/
+wp-content/upgrade/
+wp-content/backup-db/
+wp-content/advanced-cache.php
+wp-content/wp-cache-config.php
+wp-content/object-cache.php
+wp-content/mu-plugins/
+
+# --------------------------
+# 🔴 3rd-Party Plugins & Themes (install via WP or Composer)
+# --------------------------
+wp-content/plugins/*
+!wp-content/plugins/ownstay-core/
+
+wp-content/themes/*
+!wp-content/themes/ownstay/
+!wp-content/themes/index.php
+
+# wp-content root index (WordPress default, not custom)
+wp-content/index.php
+
+# --------------------------
+# 🟡 OS & Editor files
+# --------------------------
 .DS_Store
 .DS_Store?
 ._*
@@ -6,9 +77,8 @@
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-# Editor files
 *.swp
 *~
 .idea/
 .vscode/
+*.log
