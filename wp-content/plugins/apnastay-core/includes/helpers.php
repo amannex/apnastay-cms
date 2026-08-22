@@ -1,8 +1,8 @@
 <?php
 /**
- * OwnStay Core Helper Functions.
+ * ApnaStay Core Helper Functions.
  *
- * @package OwnStay_Core
+ * @package ApnaStay_Core
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,45 +10,45 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Get primary OwnStay role for a user.
+ * Get primary ApnaStay role for a user.
  *
  * @param int $user_id User ID.
  * @return string
  */
-function ownstay_get_user_role( $user_id = 0 ) {
-	return OwnStay_Roles::get_user_role( $user_id );
+function apnastay_get_user_role( $user_id = 0 ) {
+	return ApnaStay_Roles::get_user_role( $user_id );
 }
 
 /**
- * Check if user has a specific OwnStay role.
+ * Check if user has a specific ApnaStay role.
  *
  * @param int    $user_id User ID.
  * @param string $role Role slug.
  * @return bool
  */
-function ownstay_has_role( $user_id, $role ) {
-	return OwnStay_Roles::has_role( $user_id, $role );
+function apnastay_has_role( $user_id, $role ) {
+	return ApnaStay_Roles::has_role( $user_id, $role );
 }
 
 /**
- * Get formatted user profile with OwnStay metadata.
+ * Get formatted user profile with ApnaStay metadata.
  *
  * @param int $user_id User ID.
  * @return array|WP_Error
  */
-function ownstay_get_user_profile( $user_id = 0 ) {
-	return OwnStay_Auth::get_user_profile( $user_id );
+function apnastay_get_user_profile( $user_id = 0 ) {
+	return ApnaStay_Auth::get_user_profile( $user_id );
 }
 
 /**
- * Check if a user has a specific OwnStay capability.
+ * Check if a user has a specific ApnaStay capability.
  *
  * @param int    $user_id User ID.
  * @param string $capability Capability slug.
  * @return bool
  */
-function ownstay_user_can( $user_id, $capability ) {
-	return OwnStay_Roles::user_can( $user_id, $capability );
+function apnastay_user_can( $user_id, $capability ) {
+	return ApnaStay_Roles::user_can( $user_id, $capability );
 }
 
 /**
@@ -57,8 +57,8 @@ function ownstay_user_can( $user_id, $capability ) {
  * @param string $role_slug Role slug.
  * @return array
  */
-function ownstay_get_role_capabilities( $role_slug ) {
-	return OwnStay_Roles::get_role_capabilities( $role_slug );
+function apnastay_get_role_capabilities( $role_slug ) {
+	return ApnaStay_Roles::get_role_capabilities( $role_slug );
 }
 
 /**
@@ -66,17 +66,17 @@ function ownstay_get_role_capabilities( $role_slug ) {
  *
  * @return array
  */
-function ownstay_get_all_capabilities() {
-	return OwnStay_Roles::get_capabilities();
+function apnastay_get_all_capabilities() {
+	return ApnaStay_Roles::get_capabilities();
 }
 
 /**
- * Get a flat array of every unique OwnStay platform capability slug across all roles.
+ * Get a flat array of every unique ApnaStay platform capability slug across all roles.
  *
  * @return array
  */
-function ownstay_get_all_platform_capabilities() {
-	return OwnStay_Roles::get_all_platform_capabilities();
+function apnastay_get_all_platform_capabilities() {
+	return ApnaStay_Roles::get_all_platform_capabilities();
 }
 
 /**
@@ -87,7 +87,7 @@ function ownstay_get_all_platform_capabilities() {
  * @param string $code Error code slug.
  * @return WP_Error
  */
-function ownstay_format_error_response( $message, $status = 400, $code = 'ownstay_error' ) {
+function apnastay_format_error_response( $message, $status = 400, $code = 'apnastay_error' ) {
 	return new WP_Error( $code, $message, array( 'status' => $status ) );
 }
 
@@ -99,7 +99,7 @@ function ownstay_format_error_response( $message, $status = 400, $code = 'ownsta
  * @param int    $status HTTP status code.
  * @return WP_REST_Response
  */
-function ownstay_format_success_response( $data = array(), $message = '', $status = 200 ) {
+function apnastay_format_success_response( $data = array(), $message = '', $status = 200 ) {
 	$response_data = array(
 		'success' => true,
 		'data'    => $data,
@@ -119,7 +119,7 @@ function ownstay_format_success_response( $data = array(), $message = '', $statu
  * @param int $user_id Optional user ID (defaults to current logged-in user).
  * @return bool|WP_Error True if user owns the resource or is admin, WP_Error otherwise.
  */
-function ownstay_verify_resource_ownership( $post_id, $user_id = 0 ) {
+function apnastay_verify_resource_ownership( $post_id, $user_id = 0 ) {
 	if ( ! $user_id ) {
 		$user_id = get_current_user_id();
 	}
@@ -127,13 +127,13 @@ function ownstay_verify_resource_ownership( $post_id, $user_id = 0 ) {
 	if ( ! $user_id ) {
 		return new WP_Error(
 			'unauthorized',
-			__( 'You must be logged in to modify this resource.', 'ownstay-core' ),
+			__( 'You must be logged in to modify this resource.', 'apnastay-core' ),
 			array( 'status' => 401 )
 		);
 	}
 
 	// Admin can bypass ownership where appropriate
-	if ( user_can( $user_id, 'ownstay_manage_properties' ) || user_can( $user_id, 'administrator' ) ) {
+	if ( user_can( $user_id, 'apnastay_manage_properties' ) || user_can( $user_id, 'administrator' ) ) {
 		return true;
 	}
 
@@ -141,12 +141,12 @@ function ownstay_verify_resource_ownership( $post_id, $user_id = 0 ) {
 	if ( ! $post ) {
 		return new WP_Error(
 			'not_found',
-			__( 'Resource not found.', 'ownstay-core' ),
+			__( 'Resource not found.', 'apnastay-core' ),
 			array( 'status' => 404 )
 		);
 	}
 
-	$owner_id = (int) get_post_meta( $post->ID, '_ownstay_owner_id', true );
+	$owner_id = (int) get_post_meta( $post->ID, '_apnastay_owner_id', true );
 	if ( ! $owner_id ) {
 		$owner_id = (int) $post->post_author;
 	}
@@ -154,7 +154,7 @@ function ownstay_verify_resource_ownership( $post_id, $user_id = 0 ) {
 	if ( $owner_id !== (int) $user_id ) {
 		return new WP_Error(
 			'forbidden',
-			__( 'You cannot edit this property as you are not the owner.', 'ownstay-core' ),
+			__( 'You cannot edit this property as you are not the owner.', 'apnastay-core' ),
 			array( 'status' => 403 )
 		);
 	}
@@ -172,22 +172,22 @@ function ownstay_verify_resource_ownership( $post_id, $user_id = 0 ) {
  * @param array $property_data Property fields array (title, description, rent, city).
  * @return bool|WP_Error True if all business rules pass, WP_Error otherwise.
  */
-function ownstay_validate_property_publication( $user_id, $property_data = array() ) {
+function apnastay_validate_property_publication( $user_id, $property_data = array() ) {
 	if ( ! $user_id ) {
 		$user_id = get_current_user_id();
 	}
 
 	// 1. Business Rule: Owner Verified?
-	// Even if an owner has 'ownstay_create_property' RBAC capability, they can only publish if verified (unless Admin).
-	if ( ! user_can( $user_id, 'ownstay_manage_properties' ) && ! user_can( $user_id, 'administrator' ) ) {
+	// Even if an owner has 'apnastay_create_property' RBAC capability, they can only publish if verified (unless Admin).
+	if ( ! user_can( $user_id, 'apnastay_manage_properties' ) && ! user_can( $user_id, 'administrator' ) ) {
 		$verification_status = get_user_meta( $user_id, 'owner_verification_status', true );
 		if ( empty( $verification_status ) ) {
-			$verification_status = get_user_meta( $user_id, 'ownstay_verification_status', true );
+			$verification_status = get_user_meta( $user_id, 'apnastay_verification_status', true );
 		}
 		if ( 'verified' !== strtolower( trim( $verification_status ) ) ) {
 			return new WP_Error(
 				'owner_not_verified',
-				__( 'Business Rule Violation: Owner account must be KYC-verified before publishing a property listing.', 'ownstay-core' ),
+				__( 'Business Rule Violation: Owner account must be KYC-verified before publishing a property listing.', 'apnastay-core' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -202,7 +202,7 @@ function ownstay_validate_property_publication( $user_id, $property_data = array
 	if ( strlen( $title ) < 5 ) {
 		return new WP_Error(
 			'invalid_property_title',
-			__( 'Business Rule Violation: Property title must be at least 5 characters long.', 'ownstay-core' ),
+			__( 'Business Rule Violation: Property title must be at least 5 characters long.', 'apnastay-core' ),
 			array( 'status' => 422 )
 		);
 	}
@@ -210,7 +210,7 @@ function ownstay_validate_property_publication( $user_id, $property_data = array
 	if ( strlen( $description ) < 20 ) {
 		return new WP_Error(
 			'invalid_property_description',
-			__( 'Business Rule Violation: Property description must be at least 20 characters long to provide adequate information for tenants.', 'ownstay-core' ),
+			__( 'Business Rule Violation: Property description must be at least 20 characters long to provide adequate information for tenants.', 'apnastay-core' ),
 			array( 'status' => 422 )
 		);
 	}
@@ -218,7 +218,7 @@ function ownstay_validate_property_publication( $user_id, $property_data = array
 	if ( $rent < 1000 ) {
 		return new WP_Error(
 			'invalid_property_rent',
-			__( 'Business Rule Violation: Minimum monthly rent must be at least ₹1,000 to publish a verified listing.', 'ownstay-core' ),
+			__( 'Business Rule Violation: Minimum monthly rent must be at least ₹1,000 to publish a verified listing.', 'apnastay-core' ),
 			array( 'status' => 422 )
 		);
 	}
@@ -226,7 +226,7 @@ function ownstay_validate_property_publication( $user_id, $property_data = array
 	if ( empty( $city ) ) {
 		return new WP_Error(
 			'invalid_property_city',
-			__( 'Business Rule Violation: Property city is required.', 'ownstay-core' ),
+			__( 'Business Rule Violation: Property city is required.', 'apnastay-core' ),
 			array( 'status' => 422 )
 		);
 	}

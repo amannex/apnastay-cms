@@ -1,8 +1,8 @@
 <?php
 /**
- * OwnStay Authentication & Role-Switching Layer.
+ * ApnaStay Authentication & Role-Switching Layer.
  *
- * @package OwnStay_Core
+ * @package ApnaStay_Core
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,21 +10,21 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * OwnStay_Auth Class.
+ * ApnaStay_Auth Class.
  */
-class OwnStay_Auth {
+class ApnaStay_Auth {
 
 	/**
 	 * Singleton instance.
 	 *
-	 * @var OwnStay_Auth|null
+	 * @var ApnaStay_Auth|null
 	 */
 	private static $instance = null;
 
 	/**
 	 * Get singleton instance.
 	 *
-	 * @return OwnStay_Auth
+	 * @return ApnaStay_Auth
 	 */
 	public static function get_instance() {
 		if ( null === self::$instance ) {
@@ -45,7 +45,7 @@ class OwnStay_Auth {
 
 	/**
 	 * REST API Authentication filter.
-	 * Validates ownstay_session HttpOnly cookie or Authorization Bearer header without exposing secrets to localStorage.
+	 * Validates apnastay_session HttpOnly cookie or Authorization Bearer header without exposing secrets to localStorage.
 	 *
 	 * @param WP_Error|null|bool $result Error from previous auth handler, null, or bool.
 	 * @return WP_Error|null|bool
@@ -55,9 +55,9 @@ class OwnStay_Auth {
 			return $result;
 		}
 
-		// 1. Check for ownstay_session HttpOnly cookie.
-		if ( isset( $_COOKIE['ownstay_session'] ) ) {
-			$user_id = self::validate_session_token( wp_unslash( $_COOKIE['ownstay_session'] ) );
+		// 1. Check for apnastay_session HttpOnly cookie.
+		if ( isset( $_COOKIE['apnastay_session'] ) ) {
+			$user_id = self::validate_session_token( wp_unslash( $_COOKIE['apnastay_session'] ) );
 			if ( $user_id ) {
 				wp_set_current_user( $user_id );
 				return true;
@@ -93,7 +93,7 @@ class OwnStay_Auth {
 	public static function generate_session_token( $user_id ) {
 		$expiration = time() + ( 14 * DAY_IN_SECONDS );
 		$data       = $user_id . '|' . $expiration;
-		$hmac       = hash_hmac( 'sha256', 'ownstay_session|' . $data, wp_salt( 'auth' ) );
+		$hmac       = hash_hmac( 'sha256', 'apnastay_session|' . $data, wp_salt( 'auth' ) );
 		return base64_encode( $data . '|' . $hmac );
 	}
 
@@ -126,7 +126,7 @@ class OwnStay_Auth {
 			return false;
 		}
 
-		$expected_hmac = hash_hmac( 'sha256', "ownstay_session|{$user_id}|{$expiration}", wp_salt( 'auth' ) );
+		$expected_hmac = hash_hmac( 'sha256', "apnastay_session|{$user_id}|{$expiration}", wp_salt( 'auth' ) );
 		if ( ! hash_equals( $expected_hmac, $hmac ) ) {
 			return false;
 		}
@@ -140,7 +140,7 @@ class OwnStay_Auth {
 	}
 
 	/**
-	 * Set HttpOnly, Secure, SameSite session cookie for OwnStay.
+	 * Set HttpOnly, Secure, SameSite session cookie for ApnaStay.
 	 *
 	 * @param int $user_id User ID.
 	 * @return string The generated token.
@@ -156,7 +156,7 @@ class OwnStay_Auth {
 		if ( ! headers_sent() ) {
 			if ( PHP_VERSION_ID >= 70300 ) {
 				setcookie(
-					'ownstay_session',
+					'apnastay_session',
 					$token,
 					array(
 						'expires'  => $expires,
@@ -169,7 +169,7 @@ class OwnStay_Auth {
 				);
 			} else {
 				$cookie_header = sprintf(
-					'Set-Cookie: ownstay_session=%s; expires=%s; path=/; HttpOnly; SameSite=Lax%s',
+					'Set-Cookie: apnastay_session=%s; expires=%s; path=/; HttpOnly; SameSite=Lax%s',
 					urlencode( $token ),
 					gmdate( 'D, d-M-Y H:i:s \G\M\T', $expires ),
 					$secure ? '; Secure' : ''
@@ -190,7 +190,7 @@ class OwnStay_Auth {
 		if ( ! headers_sent() ) {
 			if ( PHP_VERSION_ID >= 70300 ) {
 				setcookie(
-					'ownstay_session',
+					'apnastay_session',
 					'',
 					array(
 						'expires'  => time() - 3600,
@@ -202,28 +202,28 @@ class OwnStay_Auth {
 					)
 				);
 			} else {
-				header( 'Set-Cookie: ownstay_session=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; HttpOnly; SameSite=Lax', false );
+				header( 'Set-Cookie: apnastay_session=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; HttpOnly; SameSite=Lax', false );
 			}
 		}
 	}
 
 	/**
-	 * Switch user role safely within allowed OwnStay RBAC roles.
-	 * Only the three real roles are permitted in the database: ownstay_tenant, ownstay_owner, administrator.
+	 * Switch user role safely within allowed ApnaStay RBAC roles.
+	 * Only the three real roles are permitted in the database: apnastay_tenant, apnastay_owner, administrator.
 	 *
 	 * @param int    $user_id User ID.
 	 * @param string $new_role Target role slug.
 	 * @return bool|WP_Error
 	 */
 	public static function switch_user_role( $user_id, $new_role ) {
-		$allowed_roles = array( 'ownstay_tenant', 'ownstay_owner', 'administrator' );
+		$allowed_roles = array( 'apnastay_tenant', 'apnastay_owner', 'administrator' );
 		if ( ! in_array( $new_role, $allowed_roles, true ) ) {
-			return new WP_Error( 'invalid_role', __( 'The requested role is not allowed.', 'ownstay-core' ), array( 'status' => 400 ) );
+			return new WP_Error( 'invalid_role', __( 'The requested role is not allowed.', 'apnastay-core' ), array( 'status' => 400 ) );
 		}
 
 		$user = get_userdata( $user_id );
 		if ( ! $user ) {
-			return new WP_Error( 'invalid_user', __( 'User not found.', 'ownstay-core' ), array( 'status' => 404 ) );
+			return new WP_Error( 'invalid_user', __( 'User not found.', 'apnastay-core' ), array( 'status' => 404 ) );
 		}
 
 		// Set primary role.
@@ -233,7 +233,7 @@ class OwnStay_Auth {
 	}
 
 	/**
-	 * Get formatted profile data for a user including OwnStay RBAC metadata.
+	 * Get formatted profile data for a user including ApnaStay RBAC metadata.
 	 *
 	 * @param int $user_id User ID.
 	 * @return array|WP_Error
@@ -265,12 +265,12 @@ class OwnStay_Auth {
 
 		$user = get_userdata( $user_id );
 		if ( ! $user ) {
-			return new WP_Error( 'user_not_found', __( 'User profile not found.', 'ownstay-core' ), array( 'status' => 404 ) );
+			return new WP_Error( 'user_not_found', __( 'User profile not found.', 'apnastay-core' ), array( 'status' => 404 ) );
 		}
 
-		$role_slug = OwnStay_Roles::get_user_role( $user_id );
+		$role_slug = ApnaStay_Roles::get_user_role( $user_id );
 
-		$all_platform_caps = OwnStay_Roles::get_all_platform_capabilities();
+		$all_platform_caps = ApnaStay_Roles::get_all_platform_capabilities();
 		$user_caps         = array();
 		foreach ( $all_platform_caps as $cap ) {
 			if ( user_can( $user_id, $cap ) ) {
@@ -280,12 +280,12 @@ class OwnStay_Auth {
 
 		$verification_status = get_user_meta( $user_id, 'owner_verification_status', true );
 		if ( empty( $verification_status ) ) {
-			$verification_status = get_user_meta( $user_id, 'ownstay_verification_status', true );
+			$verification_status = get_user_meta( $user_id, 'apnastay_verification_status', true );
 		}
 		if ( empty( $verification_status ) ) {
-			if ( 'ownstay_owner' === $role_slug || 'owner' === $role_slug ) {
+			if ( 'apnastay_owner' === $role_slug || 'owner' === $role_slug ) {
 				$verification_status = 'unverified';
-			} elseif ( 'administrator' === $role_slug || 'admin' === $role_slug || 'ownstay_tenant' === $role_slug || 'tenant' === $role_slug ) {
+			} elseif ( 'administrator' === $role_slug || 'admin' === $role_slug || 'apnastay_tenant' === $role_slug || 'tenant' === $role_slug ) {
 				$verification_status = 'verified';
 			} else {
 				$verification_status = 'unverified';
@@ -298,8 +298,8 @@ class OwnStay_Auth {
 			$name = $user->user_login;
 		}
 
-		$avatar = get_user_meta( $user_id, 'ownstay_avatar', true );
-		$phone  = get_user_meta( $user_id, 'ownstay_phone', true );
+		$avatar = get_user_meta( $user_id, 'apnastay_avatar', true );
+		$phone  = get_user_meta( $user_id, 'apnastay_phone', true );
 
 		return array(
 			'id'                        => (int) $user->ID,
@@ -329,10 +329,10 @@ class OwnStay_Auth {
 	public static function require_capability( $capability ) {
 		return function () use ( $capability ) {
 			if ( ! is_user_logged_in() && 'read' !== $capability ) {
-				return new WP_Error( 'unauthorized', __( 'You must be logged in to perform this action.', 'ownstay-core' ), array( 'status' => 401 ) );
+				return new WP_Error( 'unauthorized', __( 'You must be logged in to perform this action.', 'apnastay-core' ), array( 'status' => 401 ) );
 			}
 			if ( ! current_user_can( $capability ) && ! current_user_can( 'administrator' ) ) {
-				return new WP_Error( 'forbidden', __( 'You do not have permission to access this resource.', 'ownstay-core' ), array( 'status' => 403 ) );
+				return new WP_Error( 'forbidden', __( 'You do not have permission to access this resource.', 'apnastay-core' ), array( 'status' => 403 ) );
 			}
 			return true;
 		};
@@ -354,11 +354,11 @@ class OwnStay_Auth {
 
 		if ( is_user_logged_in() && ! current_user_can( 'manage_options' ) && ! current_user_can( 'administrator' ) ) {
 			$user_id   = get_current_user_id();
-			$role_slug = OwnStay_Roles::get_user_role( $user_id );
+			$role_slug = ApnaStay_Roles::get_user_role( $user_id );
 
-			$frontend_url = defined( 'OWNSTAY_FRONTEND_URL' ) ? rtrim( OWNSTAY_FRONTEND_URL, '/' ) : 'http://localhost:3000';
+			$frontend_url = defined( 'APNASTAY_FRONTEND_URL' ) ? rtrim( APNASTAY_FRONTEND_URL, '/' ) : 'http://localhost:3000';
 
-			if ( 'ownstay_owner' === $role_slug ) {
+			if ( 'apnastay_owner' === $role_slug ) {
 				$redirect_url = $frontend_url . '/owner/dashboard?wp_admin_blocked=1';
 			} else {
 				$redirect_url = $frontend_url . '/dashboard?wp_admin_blocked=1';
@@ -380,10 +380,10 @@ class OwnStay_Auth {
 	public static function custom_login_redirect( $redirect_to, $requested_redirect_to, $user ) {
 		if ( ! is_wp_error( $user ) && $user instanceof WP_User ) {
 			if ( ! $user->has_cap( 'manage_options' ) && ! in_array( 'administrator', $user->roles, true ) ) {
-				$role_slug    = OwnStay_Roles::get_user_role( $user->ID );
-				$frontend_url = defined( 'OWNSTAY_FRONTEND_URL' ) ? rtrim( OWNSTAY_FRONTEND_URL, '/' ) : 'http://localhost:3000';
+				$role_slug    = ApnaStay_Roles::get_user_role( $user->ID );
+				$frontend_url = defined( 'APNASTAY_FRONTEND_URL' ) ? rtrim( APNASTAY_FRONTEND_URL, '/' ) : 'http://localhost:3000';
 
-				if ( 'ownstay_owner' === $role_slug ) {
+				if ( 'apnastay_owner' === $role_slug ) {
 					return $frontend_url . '/owner/dashboard';
 				}
 				return $frontend_url . '/dashboard';

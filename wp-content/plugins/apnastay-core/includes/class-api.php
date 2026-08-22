@@ -1,8 +1,8 @@
 <?php
 /**
- * OwnStay REST API Router & Initialization.
+ * ApnaStay REST API Router & Initialization.
  *
- * @package OwnStay_Core
+ * @package ApnaStay_Core
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,14 +10,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * OwnStay_API Class.
+ * ApnaStay_API Class.
  */
-class OwnStay_API {
+class ApnaStay_API {
 
 	/**
 	 * Singleton instance.
 	 *
-	 * @var OwnStay_API|null
+	 * @var ApnaStay_API|null
 	 */
 	private static $instance = null;
 
@@ -26,12 +26,12 @@ class OwnStay_API {
 	 *
 	 * @var string
 	 */
-	public static $namespace = 'ownstay/v1';
+	public static $namespace = 'apnastay/v1';
 
 	/**
 	 * Get singleton instance.
 	 *
-	 * @return OwnStay_API
+	 * @return ApnaStay_API
 	 */
 	public static function get_instance() {
 		if ( null === self::$instance ) {
@@ -52,19 +52,19 @@ class OwnStay_API {
 	 */
 	public function register_routes() {
 		// Register Auth Controller.
-		$auth_controller = new OwnStay_Auth_Controller();
+		$auth_controller = new ApnaStay_Auth_Controller();
 		$auth_controller->register_routes();
 
 		// Register User Controller.
-		$user_controller = new OwnStay_User_Controller();
+		$user_controller = new ApnaStay_User_Controller();
 		$user_controller->register_routes();
 
 		// Register Property Controller with RBAC permission callbacks.
-		$property_controller = new OwnStay_Property_Controller();
+		$property_controller = new ApnaStay_Property_Controller();
 		$property_controller->register_routes();
 
 		// Register Permission Matrix Test Controller (Phase 24).
-		$permission_controller = new OwnStay_Permission_Controller();
+		$permission_controller = new ApnaStay_Permission_Controller();
 		$permission_controller->register_routes();
 	}
 }

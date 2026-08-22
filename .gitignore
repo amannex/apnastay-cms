@@ -58,7 +58,7 @@ wp-content/mu-plugins/
 # 🔴 3rd-Party Plugins & Themes (install via WP or Composer)
 # --------------------------
 wp-content/plugins/*
-!wp-content/plugins/ownstay-core/
+!wp-content/plugins/apnastay-core/
 
 wp-content/themes/*
 !wp-content/themes/ownstay/

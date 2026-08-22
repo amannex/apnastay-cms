@@ -1,8 +1,8 @@
 <?php
 /**
- * OwnStay User REST API Controller.
+ * ApnaStay User REST API Controller.
  *
- * @package OwnStay_Core
+ * @package ApnaStay_Core
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,15 +10,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * OwnStay_User_Controller Class.
+ * ApnaStay_User_Controller Class.
  */
-class OwnStay_User_Controller extends WP_REST_Controller {
+class ApnaStay_User_Controller extends WP_REST_Controller {
 
 	/**
 	 * Constructor.
 	 */
 	public function __construct() {
-		$this->namespace = OwnStay_API::$namespace;
+		$this->namespace = ApnaStay_API::$namespace;
 		$this->rest_base = 'users';
 	}
 
@@ -26,7 +26,7 @@ class OwnStay_User_Controller extends WP_REST_Controller {
 	 * Register user endpoints.
 	 */
 	public function register_routes() {
-		// GET /wp-json/ownstay/v1/users/profile
+		// GET /wp-json/apnastay/v1/users/profile
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/profile',
@@ -45,7 +45,7 @@ class OwnStay_User_Controller extends WP_REST_Controller {
 			)
 		);
 
-		// GET /wp-json/ownstay/v1/users/<id>
+		// GET /wp-json/apnastay/v1/users/<id>
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/(?P<id>\d+)',
@@ -58,7 +58,7 @@ class OwnStay_User_Controller extends WP_REST_Controller {
 			)
 		);
 
-		// POST /wp-json/ownstay/v1/users/profile/verify
+		// POST /wp-json/apnastay/v1/users/profile/verify
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/profile/verify',
@@ -71,7 +71,7 @@ class OwnStay_User_Controller extends WP_REST_Controller {
 			)
 		);
 
-		// PUT /wp-json/ownstay/v1/users/<id>/verification
+		// PUT /wp-json/apnastay/v1/users/<id>/verification
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/(?P<id>\d+)/verification',
@@ -92,7 +92,7 @@ class OwnStay_User_Controller extends WP_REST_Controller {
 	 */
 	public function check_user_logged_in() {
 		if ( ! is_user_logged_in() ) {
-			return new WP_Error( 'unauthorized', __( 'You must be logged in to view or update your profile.', 'ownstay-core' ), array( 'status' => 401 ) );
+			return new WP_Error( 'unauthorized', __( 'You must be logged in to view or update your profile.', 'apnastay-core' ), array( 'status' => 401 ) );
 		}
 		return true;
 	}
@@ -105,9 +105,9 @@ class OwnStay_User_Controller extends WP_REST_Controller {
 	 */
 	public function get_profile( $request ) {
 		$user_id = get_current_user_id();
-		$profile = ownstay_get_user_profile( $user_id );
+		$profile = apnastay_get_user_profile( $user_id );
 
-		return ownstay_format_success_response( $profile );
+		return apnastay_format_success_response( $profile );
 	}
 
 	/**
@@ -140,12 +140,12 @@ class OwnStay_User_Controller extends WP_REST_Controller {
 		}
 
 		if ( null !== $phone ) {
-			update_user_meta( $user_id, 'ownstay_phone', $phone );
+			update_user_meta( $user_id, 'apnastay_phone', $phone );
 		}
 
-		$profile = ownstay_get_user_profile( $user_id );
+		$profile = apnastay_get_user_profile( $user_id );
 
-		return ownstay_format_success_response( $profile, __( 'Profile updated successfully.', 'ownstay-core' ) );
+		return apnastay_format_success_response( $profile, __( 'Profile updated successfully.', 'apnastay-core' ) );
 	}
 
 	/**
@@ -159,14 +159,14 @@ class OwnStay_User_Controller extends WP_REST_Controller {
 		$user    = get_userdata( $user_id );
 
 		if ( ! $user ) {
-			return ownstay_format_error_response( __( 'User not found.', 'ownstay-core' ), 404 );
+			return apnastay_format_error_response( __( 'User not found.', 'apnastay-core' ), 404 );
 		}
 
-		$profile = ownstay_get_user_profile( $user_id );
+		$profile = apnastay_get_user_profile( $user_id );
 		// Filter sensitive fields for public view.
 		unset( $profile['email'] );
 
-		return ownstay_format_success_response( $profile );
+		return apnastay_format_success_response( $profile );
 	}
 
 	/**
@@ -201,10 +201,10 @@ class OwnStay_User_Controller extends WP_REST_Controller {
 	 */
 	public function check_admin_permission() {
 		if ( ! is_user_logged_in() ) {
-			return new WP_Error( 'unauthorized', __( 'You must be logged in.', 'ownstay-core' ), array( 'status' => 401 ) );
+			return new WP_Error( 'unauthorized', __( 'You must be logged in.', 'apnastay-core' ), array( 'status' => 401 ) );
 		}
-		if ( ! current_user_can( 'ownstay_manage_users' ) && ! current_user_can( 'administrator' ) ) {
-			return new WP_Error( 'rest_forbidden', __( 'You do not have permission to manage user verification.', 'ownstay-core' ), array( 'status' => 403 ) );
+		if ( ! current_user_can( 'apnastay_manage_users' ) && ! current_user_can( 'administrator' ) ) {
+			return new WP_Error( 'rest_forbidden', __( 'You do not have permission to manage user verification.', 'apnastay-core' ), array( 'status' => 403 ) );
 		}
 		return true;
 	}
@@ -221,14 +221,14 @@ class OwnStay_User_Controller extends WP_REST_Controller {
 		$user    = get_userdata( $user_id );
 
 		if ( ! $user ) {
-			return ownstay_format_error_response( __( 'User not found.', 'ownstay-core' ), 404 );
+			return apnastay_format_error_response( __( 'User not found.', 'apnastay-core' ), 404 );
 		}
 
 		update_user_meta( $user_id, 'owner_verification_status', 'pending' );
-		update_user_meta( $user_id, 'ownstay_verification_status', 'pending' );
+		update_user_meta( $user_id, 'apnastay_verification_status', 'pending' );
 
-		$profile = ownstay_get_user_profile( $user_id );
-		return ownstay_format_success_response( $profile, __( 'Verification submitted successfully. Status is now pending.', 'ownstay-core' ) );
+		$profile = apnastay_get_user_profile( $user_id );
+		return apnastay_format_success_response( $profile, __( 'Verification submitted successfully. Status is now pending.', 'apnastay-core' ) );
 	}
 
 	/**
@@ -243,7 +243,7 @@ class OwnStay_User_Controller extends WP_REST_Controller {
 		$user    = get_userdata( $user_id );
 
 		if ( ! $user ) {
-			return ownstay_format_error_response( __( 'User not found.', 'ownstay-core' ), 404 );
+			return apnastay_format_error_response( __( 'User not found.', 'apnastay-core' ), 404 );
 		}
 
 		$params = $request->get_json_params();
@@ -251,17 +251,17 @@ class OwnStay_User_Controller extends WP_REST_Controller {
 
 		$allowed_statuses = array( 'unverified', 'pending', 'verified', 'rejected', 'suspended' );
 		if ( ! in_array( $status, $allowed_statuses, true ) ) {
-			return ownstay_format_error_response(
-				__( 'Invalid verification status. Allowed: unverified, pending, verified, rejected, suspended.', 'ownstay-core' ),
+			return apnastay_format_error_response(
+				__( 'Invalid verification status. Allowed: unverified, pending, verified, rejected, suspended.', 'apnastay-core' ),
 				400,
 				'invalid_status'
 			);
 		}
 
 		update_user_meta( $user_id, 'owner_verification_status', $status );
-		update_user_meta( $user_id, 'ownstay_verification_status', $status );
+		update_user_meta( $user_id, 'apnastay_verification_status', $status );
 
-		$profile = ownstay_get_user_profile( $user_id );
-		return ownstay_format_success_response( $profile, sprintf( __( 'User verification status updated to %s.', 'ownstay-core' ), $status ) );
+		$profile = apnastay_get_user_profile( $user_id );
+		return apnastay_format_success_response( $profile, sprintf( __( 'User verification status updated to %s.', 'apnastay-core' ), $status ) );
 	}
 }

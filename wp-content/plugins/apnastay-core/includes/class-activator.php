@@ -2,7 +2,7 @@
 /**
  * Fired during plugin activation.
  *
- * @package OwnStay_Core
+ * @package ApnaStay_Core
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,19 +10,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * OwnStay Activator Class.
+ * ApnaStay Activator Class.
  */
-class OwnStay_Activator {
+class ApnaStay_Activator {
 
 	/**
 	 * Plugin activation routine.
 	 * Registers custom RBAC roles and default capabilities, and flushes rewrite rules.
 	 */
 	public static function activate() {
-		require_once OWNSTAY_CORE_PATH . 'includes/class-roles.php';
+		require_once APNASTAY_CORE_PATH . 'includes/class-roles.php';
 		
-		// Register default OwnStay RBAC roles.
-		OwnStay_Roles::register_roles();
+		// Register default ApnaStay RBAC roles.
+		ApnaStay_Roles::register_roles();
 
 		// Flush rewrite rules after custom routes or post types are registered.
 		flush_rewrite_rules();

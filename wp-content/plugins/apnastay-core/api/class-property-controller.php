@@ -1,9 +1,9 @@
 <?php
 /**
- * OwnStay Property REST API Controller.
+ * ApnaStay Property REST API Controller.
  * Enforces real backend RBAC security boundaries using current_user_can() capability checks.
  *
- * @package OwnStay_Core
+ * @package ApnaStay_Core
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -11,15 +11,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * OwnStay_Property_Controller Class.
+ * ApnaStay_Property_Controller Class.
  */
-class OwnStay_Property_Controller extends WP_REST_Controller {
+class ApnaStay_Property_Controller extends WP_REST_Controller {
 
 	/**
 	 * Constructor.
 	 */
 	public function __construct() {
-		$this->namespace = OwnStay_API::$namespace;
+		$this->namespace = ApnaStay_API::$namespace;
 		$this->rest_base = 'properties';
 	}
 
@@ -27,7 +27,7 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 	 * Register property REST routes with strict RBAC permission callbacks.
 	 */
 	public function register_routes() {
-		// GET & POST /wp-json/ownstay/v1/properties
+		// GET & POST /wp-json/apnastay/v1/properties
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base,
@@ -46,7 +46,7 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 			)
 		);
 
-		// GET, PUT/PATCH, DELETE /wp-json/ownstay/v1/properties/<id>
+		// GET, PUT/PATCH, DELETE /wp-json/apnastay/v1/properties/<id>
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/(?P<id>\d+)',
@@ -72,8 +72,8 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 	}
 
 	/**
-	 * Permission check: User must possess 'ownstay_create_property' capability.
-	 * Even if a Tenant manually calls POST /wp-json/ownstay/v1/properties, this returns 403 Forbidden.
+	 * Permission check: User must possess 'apnastay_create_property' capability.
+	 * Even if a Tenant manually calls POST /wp-json/apnastay/v1/properties, this returns 403 Forbidden.
 	 *
 	 * @return bool|WP_Error
 	 */
@@ -81,15 +81,15 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
 				'unauthorized',
-				__( 'You must be logged in to list a property.', 'ownstay-core' ),
+				__( 'You must be logged in to list a property.', 'apnastay-core' ),
 				array( 'status' => 401 )
 			);
 		}
 
-		if ( ! current_user_can( 'ownstay_create_property' ) ) {
+		if ( ! current_user_can( 'apnastay_create_property' ) ) {
 			return new WP_Error(
 				'rest_forbidden',
-				__( 'You do not have permission to create property listings.', 'ownstay-core' ),
+				__( 'You do not have permission to create property listings.', 'apnastay-core' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -98,7 +98,7 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 	}
 
 	/**
-	 * Permission check: User must possess 'ownstay_edit_own_property' or 'ownstay_manage_properties' capability.
+	 * Permission check: User must possess 'apnastay_edit_own_property' or 'apnastay_manage_properties' capability.
 	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return bool|WP_Error
@@ -107,21 +107,21 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
 				'unauthorized',
-				__( 'You must be logged in to edit a property.', 'ownstay-core' ),
+				__( 'You must be logged in to edit a property.', 'apnastay-core' ),
 				array( 'status' => 401 )
 			);
 		}
 
-		if ( ! current_user_can( 'ownstay_edit_own_property' ) && ! current_user_can( 'ownstay_manage_properties' ) ) {
+		if ( ! current_user_can( 'apnastay_edit_own_property' ) && ! current_user_can( 'apnastay_manage_properties' ) ) {
 			return new WP_Error(
 				'rest_forbidden',
-				__( 'You do not have permission to edit this property.', 'ownstay-core' ),
+				__( 'You do not have permission to edit this property.', 'apnastay-core' ),
 				array( 'status' => 403 )
 			);
 		}
 
 		// Enforce resource ownership check (Admin can bypass)
-		$ownership = ownstay_verify_resource_ownership( (int) $request['id'] );
+		$ownership = apnastay_verify_resource_ownership( (int) $request['id'] );
 		if ( is_wp_error( $ownership ) ) {
 			return $ownership;
 		}
@@ -130,7 +130,7 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 	}
 
 	/**
-	 * Permission check: User must possess 'ownstay_delete_own_property' or 'ownstay_manage_properties' capability.
+	 * Permission check: User must possess 'apnastay_delete_own_property' or 'apnastay_manage_properties' capability.
 	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return bool|WP_Error
@@ -139,21 +139,21 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
 				'unauthorized',
-				__( 'You must be logged in to delete a property.', 'ownstay-core' ),
+				__( 'You must be logged in to delete a property.', 'apnastay-core' ),
 				array( 'status' => 401 )
 			);
 		}
 
-		if ( ! current_user_can( 'ownstay_delete_own_property' ) && ! current_user_can( 'ownstay_manage_properties' ) ) {
+		if ( ! current_user_can( 'apnastay_delete_own_property' ) && ! current_user_can( 'apnastay_manage_properties' ) ) {
 			return new WP_Error(
 				'rest_forbidden',
-				__( 'You do not have permission to delete this property.', 'ownstay-core' ),
+				__( 'You do not have permission to delete this property.', 'apnastay-core' ),
 				array( 'status' => 403 )
 			);
 		}
 
 		// Enforce resource ownership check (Admin can bypass)
-		$ownership = ownstay_verify_resource_ownership( (int) $request['id'] );
+		$ownership = apnastay_verify_resource_ownership( (int) $request['id'] );
 		if ( is_wp_error( $ownership ) ) {
 			return $ownership;
 		}
@@ -184,7 +184,7 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 
 		// Enforce Domain Business Rules for property publication:
 		// 1. Owner Verified? 2. Property Invariants Valid?
-		$business_check = ownstay_validate_property_publication( get_current_user_id(), $property_data );
+		$business_check = apnastay_validate_property_publication( get_current_user_id(), $property_data );
 		if ( is_wp_error( $business_check ) ) {
 			return $business_check;
 		}
@@ -193,7 +193,7 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 			'post_title'   => $title,
 			'post_content' => $description,
 			'post_status'  => 'publish',
-			'post_type'    => 'ownstay_property',
+			'post_type'    => 'apnastay_property',
 			'post_author'  => get_current_user_id(),
 		);
 
@@ -202,15 +202,15 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 		if ( is_wp_error( $post_id ) ) {
 			return new WP_Error(
 				'create_failed',
-				__( 'Failed to create property listing.', 'ownstay-core' ),
+				__( 'Failed to create property listing.', 'apnastay-core' ),
 				array( 'status' => 500 )
 			);
 		}
 
 		// Store property meta values
-		update_post_meta( $post_id, '_ownstay_city', $city );
-		update_post_meta( $post_id, '_ownstay_rent', $rent );
-		update_post_meta( $post_id, '_ownstay_owner_id', get_current_user_id() );
+		update_post_meta( $post_id, '_apnastay_city', $city );
+		update_post_meta( $post_id, '_apnastay_rent', $rent );
+		update_post_meta( $post_id, '_apnastay_owner_id', get_current_user_id() );
 
 		$response_data = array(
 			'id'          => $post_id,
@@ -234,7 +234,7 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 	 */
 	public function get_properties( $request ) {
 		$args = array(
-			'post_type'      => 'ownstay_property',
+			'post_type'      => 'apnastay_property',
 			'post_status'    => 'publish',
 			'posts_per_page' => 20,
 		);
@@ -247,8 +247,8 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 				'id'          => $post->ID,
 				'title'       => $post->post_title,
 				'description' => $post->post_content,
-				'city'        => get_post_meta( $post->ID, '_ownstay_city', true ),
-				'rent'        => (float) get_post_meta( $post->ID, '_ownstay_rent', true ),
+				'city'        => get_post_meta( $post->ID, '_apnastay_city', true ),
+				'rent'        => (float) get_post_meta( $post->ID, '_apnastay_rent', true ),
 				'owner_id'    => (int) $post->post_author,
 			);
 		}
@@ -266,10 +266,10 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 		$post_id = (int) $request['id'];
 		$post    = get_post( $post_id );
 
-		if ( ! $post || 'ownstay_property' !== $post->post_type ) {
+		if ( ! $post || 'apnastay_property' !== $post->post_type ) {
 			return new WP_Error(
 				'not_found',
-				__( 'Property not found.', 'ownstay-core' ),
+				__( 'Property not found.', 'apnastay-core' ),
 				array( 'status' => 404 )
 			);
 		}
@@ -278,8 +278,8 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 			'id'          => $post->ID,
 			'title'       => $post->post_title,
 			'description' => $post->post_content,
-			'city'        => get_post_meta( $post->ID, '_ownstay_city', true ),
-			'rent'        => (float) get_post_meta( $post->ID, '_ownstay_rent', true ),
+			'city'        => get_post_meta( $post->ID, '_apnastay_city', true ),
+			'rent'        => (float) get_post_meta( $post->ID, '_apnastay_rent', true ),
 			'owner_id'    => (int) $post->post_author,
 		);
 
@@ -296,16 +296,16 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 		$post_id = (int) $request['id'];
 		$post    = get_post( $post_id );
 
-		if ( ! $post || 'ownstay_property' !== $post->post_type ) {
-			return new WP_Error( 'not_found', __( 'Property not found.', 'ownstay-core' ), array( 'status' => 404 ) );
+		if ( ! $post || 'apnastay_property' !== $post->post_type ) {
+			return new WP_Error( 'not_found', __( 'Property not found.', 'apnastay-core' ), array( 'status' => 404 ) );
 		}
 
 		$params = $request->get_json_params();
 
 		$title       = isset( $params['title'] ) ? sanitize_text_field( $params['title'] ) : $post->post_title;
 		$description = isset( $params['description'] ) ? sanitize_textarea_field( $params['description'] ) : $post->post_content;
-		$city        = isset( $params['city'] ) ? sanitize_text_field( $params['city'] ) : get_post_meta( $post_id, '_ownstay_city', true );
-		$rent        = isset( $params['rent'] ) ? floatval( $params['rent'] ) : floatval( get_post_meta( $post_id, '_ownstay_rent', true ) );
+		$city        = isset( $params['city'] ) ? sanitize_text_field( $params['city'] ) : get_post_meta( $post_id, '_apnastay_city', true );
+		$rent        = isset( $params['rent'] ) ? floatval( $params['rent'] ) : floatval( get_post_meta( $post_id, '_apnastay_rent', true ) );
 
 		$property_data = array(
 			'title'       => $title,
@@ -314,7 +314,7 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 			'city'        => $city,
 		);
 
-		$business_check = ownstay_validate_property_publication( get_current_user_id(), $property_data );
+		$business_check = apnastay_validate_property_publication( get_current_user_id(), $property_data );
 		if ( is_wp_error( $business_check ) ) {
 			return $business_check;
 		}
@@ -333,10 +333,10 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 		wp_update_post( $post_data );
 
 		if ( isset( $params['city'] ) ) {
-			update_post_meta( $post_id, '_ownstay_city', sanitize_text_field( $params['city'] ) );
+			update_post_meta( $post_id, '_apnastay_city', sanitize_text_field( $params['city'] ) );
 		}
 		if ( isset( $params['rent'] ) ) {
-			update_post_meta( $post_id, '_ownstay_rent', floatval( $params['rent'] ) );
+			update_post_meta( $post_id, '_apnastay_rent', floatval( $params['rent'] ) );
 		}
 
 		return $this->get_property_by_id( $request );
@@ -352,8 +352,8 @@ class OwnStay_Property_Controller extends WP_REST_Controller {
 		$post_id = (int) $request['id'];
 		$post    = get_post( $post_id );
 
-		if ( ! $post || 'ownstay_property' !== $post->post_type ) {
-			return new WP_Error( 'not_found', __( 'Property not found.', 'ownstay-core' ), array( 'status' => 404 ) );
+		if ( ! $post || 'apnastay_property' !== $post->post_type ) {
+			return new WP_Error( 'not_found', __( 'Property not found.', 'apnastay-core' ), array( 'status' => 404 ) );
 		}
 
 		wp_delete_post( $post_id, true );

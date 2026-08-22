@@ -1,8 +1,8 @@
 <?php
 /**
- * OwnStay Auth REST API Controller.
+ * ApnaStay Auth REST API Controller.
  *
- * @package OwnStay_Core
+ * @package ApnaStay_Core
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,15 +10,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * OwnStay_Auth_Controller Class.
+ * ApnaStay_Auth_Controller Class.
  */
-class OwnStay_Auth_Controller extends WP_REST_Controller {
+class ApnaStay_Auth_Controller extends WP_REST_Controller {
 
 	/**
 	 * Constructor.
 	 */
 	public function __construct() {
-		$this->namespace = OwnStay_API::$namespace;
+		$this->namespace = ApnaStay_API::$namespace;
 		$this->rest_base = 'auth';
 	}
 
@@ -26,7 +26,7 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 	 * Register auth endpoints.
 	 */
 	public function register_routes() {
-		// POST /wp-json/ownstay/v1/auth/login
+		// POST /wp-json/apnastay/v1/auth/login
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/login',
@@ -40,7 +40,7 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 			)
 		);
 
-		// POST /wp-json/ownstay/v1/auth/logout
+		// POST /wp-json/apnastay/v1/auth/logout
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/logout',
@@ -53,7 +53,7 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 			)
 		);
 
-		// GET /wp-json/ownstay/v1/me (Authoritative current-user source for Next.js)
+		// GET /wp-json/apnastay/v1/me (Authoritative current-user source for Next.js)
 		register_rest_route(
 			$this->namespace,
 			'/me',
@@ -66,7 +66,7 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 			)
 		);
 
-		// GET /wp-json/ownstay/v1/auth/me
+		// GET /wp-json/apnastay/v1/auth/me
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/me',
@@ -79,7 +79,7 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 			)
 		);
 
-		// POST /wp-json/ownstay/v1/auth/switch-role
+		// POST /wp-json/apnastay/v1/auth/switch-role
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/switch-role',
@@ -99,7 +99,7 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 			)
 		);
 
-		// GET /wp-json/ownstay/v1/auth/capabilities
+		// GET /wp-json/apnastay/v1/auth/capabilities
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/capabilities',
@@ -112,7 +112,7 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 			)
 		);
 
-		// POST /wp-json/ownstay/v1/auth/register
+		// POST /wp-json/apnastay/v1/auth/register
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/register',
@@ -126,7 +126,7 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 			)
 		);
 
-		// POST /wp-json/ownstay/v1/auth/forgot-password
+		// POST /wp-json/apnastay/v1/auth/forgot-password
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/forgot-password',
@@ -140,7 +140,7 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 			)
 		);
 
-		// POST /wp-json/ownstay/v1/auth/reset-password
+		// POST /wp-json/apnastay/v1/auth/reset-password
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/reset-password',
@@ -162,7 +162,7 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 	 */
 	public function check_user_logged_in() {
 		if ( ! is_user_logged_in() ) {
-			return new WP_Error( 'unauthorized', __( 'You must be logged in to switch roles.', 'ownstay-core' ), array( 'status' => 401 ) );
+			return new WP_Error( 'unauthorized', __( 'You must be logged in to switch roles.', 'apnastay-core' ), array( 'status' => 401 ) );
 		}
 		return true;
 	}
@@ -184,19 +184,19 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 		}
 
 		if ( ! $user ) {
-			return ownstay_format_error_response( __( 'Invalid credentials.', 'ownstay-core' ), 401 );
+			return apnastay_format_error_response( __( 'Invalid credentials.', 'apnastay-core' ), 401 );
 		}
 
 		$auth = wp_authenticate( $user->user_login, $password );
 		if ( is_wp_error( $auth ) ) {
-			return ownstay_format_error_response( __( 'Invalid credentials.', 'ownstay-core' ), 401 );
+			return apnastay_format_error_response( __( 'Invalid credentials.', 'apnastay-core' ), 401 );
 		}
 
-		OwnStay_Auth::set_session_cookie( $user->ID );
+		ApnaStay_Auth::set_session_cookie( $user->ID );
 
-		$profile = ownstay_get_user_profile( $user->ID );
+		$profile = apnastay_get_user_profile( $user->ID );
 
-		return ownstay_format_success_response( $profile, __( 'Login successful.', 'ownstay-core' ) );
+		return apnastay_format_success_response( $profile, __( 'Login successful.', 'apnastay-core' ) );
 	}
 
 	/**
@@ -206,8 +206,8 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response
 	 */
 	public function logout( $request ) {
-		OwnStay_Auth::clear_session_cookie();
-		return ownstay_format_success_response( null, __( 'Logged out successfully.', 'ownstay-core' ) );
+		ApnaStay_Auth::clear_session_cookie();
+		return apnastay_format_success_response( null, __( 'Logged out successfully.', 'apnastay-core' ) );
 	}
 
 	/**
@@ -218,7 +218,7 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 	 */
 	public function get_current_user( $request ) {
 		$user_id = get_current_user_id();
-		$profile = ownstay_get_user_profile( $user_id );
+		$profile = apnastay_get_user_profile( $user_id );
 
 		return new WP_REST_Response( $profile, 200 );
 	}
@@ -235,22 +235,22 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 
 		// Map frontend role names to internal WordPress role slugs (three real database roles only).
 		$slug_map = array(
-			'TENANT' => 'ownstay_tenant',
-			'OWNER'  => 'ownstay_owner',
+			'TENANT' => 'apnastay_tenant',
+			'OWNER'  => 'apnastay_owner',
 			'ADMIN'  => 'administrator',
 		);
 		$target_role = isset( $slug_map[ strtoupper( $new_role ) ] ) ? $slug_map[ strtoupper( $new_role ) ] : $new_role;
 
-		$result = OwnStay_Auth::switch_user_role( $user_id, $target_role );
+		$result = ApnaStay_Auth::switch_user_role( $user_id, $target_role );
 		if ( is_wp_error( $result ) ) {
 			return $result;
 		}
 
-		OwnStay_Auth::set_session_cookie( $user_id );
+		ApnaStay_Auth::set_session_cookie( $user_id );
 
-		$profile = ownstay_get_user_profile( $user_id );
+		$profile = apnastay_get_user_profile( $user_id );
 
-		return ownstay_format_success_response( $profile, __( 'Role switched successfully.', 'ownstay-core' ) );
+		return apnastay_format_success_response( $profile, __( 'Role switched successfully.', 'apnastay-core' ) );
 	}
 
 	/**
@@ -262,12 +262,12 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 	public function get_capabilities( $request ) {
 		$role = $request->get_param( 'role' );
 		if ( ! empty( $role ) ) {
-			$caps = OwnStay_Roles::get_role_capabilities( strtolower( $role ) );
-			return ownstay_format_success_response( $caps );
+			$caps = ApnaStay_Roles::get_role_capabilities( strtolower( $role ) );
+			return apnastay_format_success_response( $caps );
 		}
 
-		$all_caps = OwnStay_Roles::get_capabilities();
-		return ownstay_format_success_response( $all_caps );
+		$all_caps = ApnaStay_Roles::get_capabilities();
+		return apnastay_format_success_response( $all_caps );
 	}
 
 	/**
@@ -315,36 +315,36 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 
 		// 2. Validate required fields -> 400 Bad Request.
 		if ( '' === $raw_email ) {
-			return ownstay_format_error_response( __( 'Email address is required.', 'ownstay-core' ), 400, 'missing_email' );
+			return apnastay_format_error_response( __( 'Email address is required.', 'apnastay-core' ), 400, 'missing_email' );
 		}
 		if ( '' === $password ) {
-			return ownstay_format_error_response( __( 'Password is required.', 'ownstay-core' ), 400, 'missing_password' );
+			return apnastay_format_error_response( __( 'Password is required.', 'apnastay-core' ), 400, 'missing_password' );
 		}
 
 		// 3. Email valid? -> 422 Validation Error.
 		if ( ! is_email( $email ) ) {
-			return ownstay_format_error_response( __( 'A valid email address is required.', 'ownstay-core' ), 422, 'invalid_email' );
+			return apnastay_format_error_response( __( 'A valid email address is required.', 'apnastay-core' ), 422, 'invalid_email' );
 		}
 
 		// 4. Email already exists? -> 409 Email Exists.
 		if ( email_exists( $email ) || username_exists( $email ) ) {
-			return ownstay_format_error_response( __( 'An account with this email already exists.', 'ownstay-core' ), 409, 'email_exists' );
+			return apnastay_format_error_response( __( 'An account with this email already exists.', 'apnastay-core' ), 409, 'email_exists' );
 		}
 
 		// 5. Password acceptable? -> 422 Validation Error.
 		if ( strlen( $password ) < 8 ) {
-			return ownstay_format_error_response( __( 'Password must be at least 8 characters long.', 'ownstay-core' ), 422, 'weak_password' );
+			return apnastay_format_error_response( __( 'Password must be at least 8 characters long.', 'apnastay-core' ), 422, 'weak_password' );
 		}
 
 		// 6. Valid account type? -> 422 Validation Error.
 		// Strictly allow only "tenant" or "owner". Never allow "administrator" or any other role from public registration.
 		$role_map = array(
-			'tenant' => 'ownstay_tenant',
-			'owner'  => 'ownstay_owner',
+			'tenant' => 'apnastay_tenant',
+			'owner'  => 'apnastay_owner',
 		);
 
 		if ( ! isset( $role_map[ $account_type ] ) ) {
-			return ownstay_format_error_response( __( 'Invalid account_type. Only "tenant" or "owner" are allowed.', 'ownstay-core' ), 422, 'invalid_account_type' );
+			return apnastay_format_error_response( __( 'Invalid account_type. Only "tenant" or "owner" are allowed.', 'apnastay-core' ), 422, 'invalid_account_type' );
 		}
 
 		$role_slug = $role_map[ $account_type ];
@@ -372,21 +372,21 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 		);
 
 		if ( is_wp_error( $user_id ) ) {
-			return ownstay_format_error_response( $user_id->get_error_message(), 500, 'user_creation_failed' );
+			return apnastay_format_error_response( $user_id->get_error_message(), 500, 'user_creation_failed' );
 		}
 
 		// Set initial verification status: Owners start unverified until KYC; Tenants default to verified.
-		$status = ( 'ownstay_owner' === $role_slug ) ? 'unverified' : 'verified';
+		$status = ( 'apnastay_owner' === $role_slug ) ? 'unverified' : 'verified';
 		update_user_meta( $user_id, 'owner_verification_status', $status );
-		update_user_meta( $user_id, 'ownstay_verification_status', $status );
+		update_user_meta( $user_id, 'apnastay_verification_status', $status );
 
 		// Establish session automatically via secure HttpOnly cookie.
-		OwnStay_Auth::set_session_cookie( $user_id );
+		ApnaStay_Auth::set_session_cookie( $user_id );
 
-		$profile = ownstay_get_user_profile( $user_id );
+		$profile = apnastay_get_user_profile( $user_id );
 
 		// Return 201 Created on success.
-		return ownstay_format_success_response( $profile, __( 'Registration successful.', 'ownstay-core' ), 201 );
+		return apnastay_format_success_response( $profile, __( 'Registration successful.', 'apnastay-core' ), 201 );
 	}
 
 	/**
@@ -403,11 +403,11 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 			if ( $user ) {
 				$key = get_password_reset_key( $user );
 				if ( ! is_wp_error( $key ) ) {
-					$frontend_url = function_exists( 'ownstay_get_headless_frontend_url' ) ? ownstay_get_headless_frontend_url() : trailingslashit( get_site_url() );
+					$frontend_url = function_exists( 'apnastay_get_headless_frontend_url' ) ? apnastay_get_headless_frontend_url() : trailingslashit( get_site_url() );
 					$reset_url    = $frontend_url . 'auth/reset-password?key=' . rawurlencode( $key ) . '&login=' . rawurlencode( $user->user_login );
-					$subject      = __( '[OwnStay] Password Reset Request', 'ownstay-core' );
+					$subject      = __( '[ApnaStay] Password Reset Request', 'apnastay-core' );
 					$message      = sprintf(
-						__( "Someone has requested a password reset for the following account:\n\nUser: %1\$s\n\nIf this was a mistake, just ignore this email.\n\nTo reset your password, visit the following address:\n%2\$s", 'ownstay-core' ),
+						__( "Someone has requested a password reset for the following account:\n\nUser: %1\$s\n\nIf this was a mistake, just ignore this email.\n\nTo reset your password, visit the following address:\n%2\$s", 'apnastay-core' ),
 						$user->user_login,
 						$reset_url
 					);
@@ -416,7 +416,7 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 			}
 		}
 
-		return ownstay_format_success_response( null, __( 'If an account exists with that email, a password reset link has been sent.', 'ownstay-core' ) );
+		return apnastay_format_success_response( null, __( 'If an account exists with that email, a password reset link has been sent.', 'apnastay-core' ) );
 	}
 
 	/**
@@ -431,7 +431,7 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 		$password = $request->get_param( 'password' );
 
 		if ( empty( $password ) || strlen( $password ) < 6 ) {
-			return ownstay_format_error_response( __( 'Password must be at least 6 characters long.', 'ownstay-core' ), 400 );
+			return apnastay_format_error_response( __( 'Password must be at least 6 characters long.', 'apnastay-core' ), 400 );
 		}
 
 		$user = get_user_by( 'login', $login );
@@ -440,17 +440,17 @@ class OwnStay_Auth_Controller extends WP_REST_Controller {
 		}
 
 		if ( ! $user ) {
-			return ownstay_format_error_response( __( 'Invalid or expired password reset token.', 'ownstay-core' ), 400 );
+			return apnastay_format_error_response( __( 'Invalid or expired password reset token.', 'apnastay-core' ), 400 );
 		}
 
 		$check = check_password_reset_key( $key, $user->user_login );
 		if ( is_wp_error( $check ) ) {
-			return ownstay_format_error_response( __( 'Invalid or expired password reset token.', 'ownstay-core' ), 400 );
+			return apnastay_format_error_response( __( 'Invalid or expired password reset token.', 'apnastay-core' ), 400 );
 		}
 
 		reset_password( $user, $password );
 
-		return ownstay_format_success_response( null, __( 'Password reset successful. You can now login.', 'ownstay-core' ) );
+		return apnastay_format_success_response( null, __( 'Password reset successful. You can now login.', 'apnastay-core' ) );
 	}
 
 	/**
