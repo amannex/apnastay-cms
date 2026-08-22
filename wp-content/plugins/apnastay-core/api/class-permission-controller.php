@@ -2,7 +2,7 @@
 /**
  * REST API Controller for Phase 24 RBAC Permission Matrix Verification.
  *
- * @package OwnStay_Core
+ * @package ApnaStay_Core
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,16 +10,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * OwnStay_Permission_Controller Class.
+ * ApnaStay_Permission_Controller Class.
  */
-class OwnStay_Permission_Controller {
+class ApnaStay_Permission_Controller {
 
 	/**
 	 * Register REST API routes.
 	 */
 	public function register_routes() {
 		register_rest_route(
-			OwnStay_API::$namespace,
+			ApnaStay_API::$namespace,
 			'/permissions/matrix',
 			array(
 				array(
@@ -65,25 +65,25 @@ class OwnStay_Permission_Controller {
 				if ( 0 === $uid ) {
 					return true;
 				}
-				return user_can( $uid, 'ownstay_view_properties' ) || user_can( $uid, 'read' ) || user_can( $uid, 'administrator' );
+				return user_can( $uid, 'apnastay_view_properties' ) || user_can( $uid, 'read' ) || user_can( $uid, 'administrator' );
 			},
 			'Wishlist'         => function ( $uid ) {
 				if ( 0 === $uid ) {
 					return false;
 				}
-				return user_can( $uid, 'ownstay_manage_wishlist' ) || user_can( $uid, 'administrator' );
+				return user_can( $uid, 'apnastay_manage_wishlist' ) || user_can( $uid, 'administrator' );
 			},
 			'Create property'  => function ( $uid ) {
 				if ( 0 === $uid ) {
 					return false;
 				}
-				return user_can( $uid, 'ownstay_create_property' ) || user_can( $uid, 'ownstay_manage_properties' ) || user_can( $uid, 'administrator' );
+				return user_can( $uid, 'apnastay_create_property' ) || user_can( $uid, 'apnastay_manage_properties' ) || user_can( $uid, 'administrator' );
 			},
 			'Verify property'  => function ( $uid ) {
 				if ( 0 === $uid ) {
 					return false;
 				}
-				return user_can( $uid, 'ownstay_verify_property' ) || user_can( $uid, 'administrator' );
+				return user_can( $uid, 'apnastay_verify_property' ) || user_can( $uid, 'administrator' );
 			},
 			'Admin dashboard'  => function ( $uid ) {
 				if ( 0 === $uid ) {
@@ -123,7 +123,7 @@ class OwnStay_Permission_Controller {
 		}
 
 		// Direct API & Business Rule Assertions.
-		$api_controller = new OwnStay_User_Controller();
+		$api_controller = new ApnaStay_User_Controller();
 		$assertions = array();
 
 		// Test 1: check_user_logged_in.
@@ -175,8 +175,8 @@ class OwnStay_Permission_Controller {
 
 		// Test 3: Business rules.
 		update_user_meta( $owner_user->ID, 'owner_verification_status', 'unverified' );
-		update_user_meta( $owner_user->ID, 'ownstay_verification_status', 'unverified' );
-		$unver_res  = ownstay_validate_property_publication( $owner_user->ID, array( 'title' => 'Luxury 3BHK Apt', 'description' => 'A spacious residential property with 24/7 power backup and NFC smart-locks.', 'rent' => 25000, 'city' => 'Noida' ) );
+		update_user_meta( $owner_user->ID, 'apnastay_verification_status', 'unverified' );
+		$unver_res  = apnastay_validate_property_publication( $owner_user->ID, array( 'title' => 'Luxury 3BHK Apt', 'description' => 'A spacious residential property with 24/7 power backup and NFC smart-locks.', 'rent' => 25000, 'city' => 'Noida' ) );
 		$unver_pass = is_wp_error( $unver_res ) && 'owner_not_verified' === $unver_res->get_error_code();
 		$assertions[] = array(
 			'test'   => 'Business Rule: Unverified Owner Property Publishing [Blocked]',
@@ -185,8 +185,8 @@ class OwnStay_Permission_Controller {
 		);
 
 		update_user_meta( $owner_user->ID, 'owner_verification_status', 'verified' );
-		update_user_meta( $owner_user->ID, 'ownstay_verification_status', 'verified' );
-		$ver_res  = ownstay_validate_property_publication( $owner_user->ID, array( 'title' => 'Luxury 3BHK Apt', 'description' => 'A spacious residential property with 24/7 power backup and NFC smart-locks.', 'rent' => 25000, 'city' => 'Noida' ) );
+		update_user_meta( $owner_user->ID, 'apnastay_verification_status', 'verified' );
+		$ver_res  = apnastay_validate_property_publication( $owner_user->ID, array( 'title' => 'Luxury 3BHK Apt', 'description' => 'A spacious residential property with 24/7 power backup and NFC smart-locks.', 'rent' => 25000, 'city' => 'Noida' ) );
 		$ver_pass = ( true === $ver_res );
 		$assertions[] = array(
 			'test'   => 'Business Rule: Verified Owner Property Publishing [Allowed]',
@@ -201,10 +201,10 @@ class OwnStay_Permission_Controller {
 			'post_status' => 'publish',
 			'post_author' => $owner_user->ID,
 		) );
-		update_post_meta( $dummy_id, '_ownstay_owner_id', $owner_user->ID );
+		update_post_meta( $dummy_id, '_apnastay_owner_id', $owner_user->ID );
 
 		wp_set_current_user( $owner_user->ID );
-		$own_res  = ownstay_verify_resource_ownership( $dummy_id, $owner_user->ID );
+		$own_res  = apnastay_verify_resource_ownership( $dummy_id, $owner_user->ID );
 		$own_pass = ( true === $own_res );
 		$assertions[] = array(
 			'test'   => 'Resource Ownership: Owner A Editing Property #100 (Owns) [Allowed]',
@@ -213,7 +213,7 @@ class OwnStay_Permission_Controller {
 		);
 
 		wp_set_current_user( $tenant_user->ID );
-		$other_res  = ownstay_verify_resource_ownership( $dummy_id, $tenant_user->ID );
+		$other_res  = apnastay_verify_resource_ownership( $dummy_id, $tenant_user->ID );
 		$other_pass = is_wp_error( $other_res ) && 'forbidden' === $other_res->get_error_code();
 		$assertions[] = array(
 			'test'   => 'Resource Ownership: Tenant B Editing Property #100 [403 Forbidden]',
@@ -222,7 +222,7 @@ class OwnStay_Permission_Controller {
 		);
 
 		wp_set_current_user( $admin_user->ID );
-		$adm_edit_res  = ownstay_verify_resource_ownership( $dummy_id, $admin_user->ID );
+		$adm_edit_res  = apnastay_verify_resource_ownership( $dummy_id, $admin_user->ID );
 		$adm_edit_pass = ( true === $adm_edit_res );
 		$assertions[] = array(
 			'test'   => 'Resource Ownership: Admin Editing Property #100 [Bypass Allowed]',

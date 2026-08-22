@@ -1,6 +1,6 @@
 <?php
 /**
- * OwnStay RBAC & Business Rules Permission Matrix Automated Test Runner.
+ * ApnaStay RBAC & Business Rules Permission Matrix Automated Test Runner.
  *
  * Systematic verification of Phase 24 Matrix:
  *                       Guest Tenant Owner Admin
@@ -20,7 +20,7 @@
 $wp_load_paths = array(
 	dirname( __FILE__, 4 ) . '/wp-load.php',
 	dirname( __FILE__, 3 ) . '/wp-load.php',
-	'/Users/amansaifi/Documents/ownstay-cms/wp-load.php',
+	'/Users/amansaifi/Documents/apnastay-cms/wp-load.php',
 );
 
 $loaded = false;
@@ -37,7 +37,7 @@ if ( ! $loaded ) {
 }
 
 echo "========================================================================\n";
-echo "           OWNSTAY PLATFORM - RBAC & API PERMISSION MATRIX TEST           \n";
+echo "           APNASTAY PLATFORM - RBAC & API PERMISSION MATRIX TEST           \n";
 echo "========================================================================\n\n";
 
 // 1. Locate Test Users.
@@ -62,25 +62,25 @@ $matrix_actions = array(
 		if ( 0 === $uid ) {
 			return true; // Guests can view public listings.
 		}
-		return user_can( $uid, 'ownstay_view_properties' ) || user_can( $uid, 'read' ) || user_can( $uid, 'administrator' );
+		return user_can( $uid, 'apnastay_view_properties' ) || user_can( $uid, 'read' ) || user_can( $uid, 'administrator' );
 	},
 	'Wishlist'         => function ( $uid ) {
 		if ( 0 === $uid ) {
 			return false; // Guests cannot manage wishlist.
 		}
-		return user_can( $uid, 'ownstay_manage_wishlist' ) || user_can( $uid, 'administrator' );
+		return user_can( $uid, 'apnastay_manage_wishlist' ) || user_can( $uid, 'administrator' );
 	},
 	'Create property'  => function ( $uid ) {
 		if ( 0 === $uid ) {
 			return false;
 		}
-		return user_can( $uid, 'ownstay_create_property' ) || user_can( $uid, 'ownstay_manage_properties' ) || user_can( $uid, 'administrator' );
+		return user_can( $uid, 'apnastay_create_property' ) || user_can( $uid, 'apnastay_manage_properties' ) || user_can( $uid, 'administrator' );
 	},
 	'Verify property'  => function ( $uid ) {
 		if ( 0 === $uid ) {
 			return false;
 		}
-		return user_can( $uid, 'ownstay_verify_property' ) || user_can( $uid, 'administrator' );
+		return user_can( $uid, 'apnastay_verify_property' ) || user_can( $uid, 'administrator' );
 	},
 	'Admin dashboard'  => function ( $uid ) {
 		if ( 0 === $uid ) {
@@ -156,7 +156,7 @@ echo "------------------------------------------------------------------------\n
 echo "               DIRECT REST API & BUSINESS RULE ASSERTIONS               \n";
 echo "------------------------------------------------------------------------\n";
 
-$api_controller = new OwnStay_User_Controller();
+$api_controller = new ApnaStay_User_Controller();
 
 // Test A: API check_user_logged_in() permission callback.
 echo "[Test 1] REST API Auth Callback check_user_logged_in():\n";
@@ -187,13 +187,13 @@ $admin_res = $api_controller->check_admin_permission();
 $admin_pass = ( true === $admin_res );
 echo "  -> Admin  (User #{$admin_user->ID}): " . ( $admin_pass ? "PASS (Allowed)" : "FAIL" ) . "\n";
 
-// Test C: Business Rule - Property Publication check (ownstay_validate_property_publication).
+// Test C: Business Rule - Property Publication check (apnastay_validate_property_publication).
 echo "\n[Test 3] Business Rule Validation (RBAC + KYC Verified Condition):\n";
 // Unverified Owner check.
 update_user_meta( $owner_user->ID, 'owner_verification_status', 'unverified' );
-update_user_meta( $owner_user->ID, 'ownstay_verification_status', 'unverified' );
+update_user_meta( $owner_user->ID, 'apnastay_verification_status', 'unverified' );
 
-$unverified_res = ownstay_validate_property_publication( $owner_user->ID, array(
+$unverified_res = apnastay_validate_property_publication( $owner_user->ID, array(
 	'title'       => 'Luxury 3BHK Apartment in Noida Sector 62',
 	'description' => 'A spacious residential property with 24/7 power backup and NFC smart-locks.',
 	'rent'        => 28000,
@@ -204,9 +204,9 @@ echo "  -> Unverified Owner publishing property: " . ( $unverified_pass ? "PASS 
 
 // Verified Owner check.
 update_user_meta( $owner_user->ID, 'owner_verification_status', 'verified' );
-update_user_meta( $owner_user->ID, 'ownstay_verification_status', 'verified' );
+update_user_meta( $owner_user->ID, 'apnastay_verification_status', 'verified' );
 
-$verified_res = ownstay_validate_property_publication( $owner_user->ID, array(
+$verified_res = apnastay_validate_property_publication( $owner_user->ID, array(
 	'title'       => 'Luxury 3BHK Apartment in Noida Sector 62',
 	'description' => 'A spacious residential property with 24/7 power backup and NFC smart-locks.',
 	'rent'        => 28000,
@@ -223,23 +223,23 @@ $dummy_post_id = wp_insert_post( array(
 	'post_status' => 'publish',
 	'post_author' => $owner_user->ID,
 ) );
-update_post_meta( $dummy_post_id, '_ownstay_owner_id', $owner_user->ID );
+update_post_meta( $dummy_post_id, '_apnastay_owner_id', $owner_user->ID );
 
 // Owner modifying their own post.
 wp_set_current_user( $owner_user->ID );
-$own_res = ownstay_verify_resource_ownership( $dummy_post_id, $owner_user->ID );
+$own_res = apnastay_verify_resource_ownership( $dummy_post_id, $owner_user->ID );
 $own_pass = ( true === $own_res );
 echo "  -> Owner A editing Property #100 (Owns): " . ( $own_pass ? "PASS (Allowed)" : "FAIL" ) . "\n";
 
 // Tenant trying to edit Owner A's post.
 wp_set_current_user( $tenant_user->ID );
-$other_res = ownstay_verify_resource_ownership( $dummy_post_id, $tenant_user->ID );
+$other_res = apnastay_verify_resource_ownership( $dummy_post_id, $tenant_user->ID );
 $other_pass = is_wp_error( $other_res ) && $other_res->get_error_code() === 'forbidden';
 echo "  -> Tenant B editing Property #100:       " . ( $other_pass ? "PASS (403 Forbidden as expected)" : "FAIL" ) . "\n";
 
 // Admin overriding ownership.
 wp_set_current_user( $admin_user->ID );
-$admin_edit_res = ownstay_verify_resource_ownership( $dummy_post_id, $admin_user->ID );
+$admin_edit_res = apnastay_verify_resource_ownership( $dummy_post_id, $admin_user->ID );
 $admin_edit_pass = ( true === $admin_edit_res );
 echo "  -> Admin editing Property #100:          " . ( $admin_edit_pass ? "PASS (Allowed via admin bypass)" : "FAIL" ) . "\n";
 
