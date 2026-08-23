@@ -1,5 +1,5 @@
 # ============================================================
-# OwnStay CMS — Industry-Standard WordPress .gitignore
+# ApnaStay CMS — Industry-Standard WordPress .gitignore
 # ============================================================
 # Only your custom plugin & theme are tracked.
 # WordPress core, secrets, and uploads are all excluded.
@@ -61,7 +61,7 @@ wp-content/plugins/*
 !wp-content/plugins/apnastay-core/
 
 wp-content/themes/*
-!wp-content/themes/ownstay/
+!wp-content/themes/apnastay/
 !wp-content/themes/index.php
 
 # wp-content root index (WordPress default, not custom)

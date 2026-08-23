@@ -1,6 +1,6 @@
 <?php
 /**
- * OwnStay Theme — functions.php
+ * ApnaStay Theme — functions.php
  * Handles CORS, REST API headers, and theme setup for headless deployments.
  */
 
@@ -11,7 +11,7 @@
 add_action( 'rest_api_init', function () {
     // List of allowed frontend origins
     $allowed_origins = [
-        'https://ownstay.vercel.app',
+        'https://apnastay.vercel.app',
         'http://localhost:3000',   // local Next.js dev
         'http://localhost:3001',
     ];
@@ -30,7 +30,7 @@ add_action( 'rest_api_init', function () {
 add_action( 'init', function () {
     if ( 'OPTIONS' === $_SERVER['REQUEST_METHOD'] ) {
         $allowed_origins = [
-            'https://ownstay.vercel.app',
+            'https://apnastay.vercel.app',
             'http://localhost:3000',
             'http://localhost:3001',
         ];
