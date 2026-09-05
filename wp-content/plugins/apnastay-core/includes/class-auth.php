@@ -41,6 +41,7 @@ class ApnaStay_Auth {
 		add_action( 'admin_init', array( __CLASS__, 'restrict_admin_access' ), 1 );
 		add_filter( 'login_redirect', array( __CLASS__, 'custom_login_redirect' ), 10, 3 );
 		add_action( 'after_setup_theme', array( __CLASS__, 'disable_admin_bar' ) );
+		add_action( 'deleted_user', array( __CLASS__, 'on_user_deleted' ), 10, 3 );
 	}
 
 	/**
@@ -146,9 +147,10 @@ class ApnaStay_Auth {
 	 * @return string The generated token.
 	 */
 	public static function set_session_cookie( $user_id ) {
-		$token   = self::generate_session_token( $user_id );
-		$expires = time() + ( 14 * DAY_IN_SECONDS );
-		$secure  = is_ssl();
+		$token    = self::generate_session_token( $user_id );
+		$expires  = time() + ( 14 * DAY_IN_SECONDS );
+		$secure   = is_ssl();
+		$samesite = $secure ? 'None' : 'Lax';
 
 		wp_set_current_user( $user_id );
 		wp_set_auth_cookie( $user_id, true, $secure );
@@ -164,14 +166,15 @@ class ApnaStay_Auth {
 						'domain'   => defined( 'COOKIE_DOMAIN' ) && COOKIE_DOMAIN ? COOKIE_DOMAIN : '',
 						'secure'   => $secure,
 						'httponly' => true,
-						'samesite' => 'Lax',
+						'samesite' => $samesite,
 					)
 				);
 			} else {
 				$cookie_header = sprintf(
-					'Set-Cookie: apnastay_session=%s; expires=%s; path=/; HttpOnly; SameSite=Lax%s',
+					'Set-Cookie: apnastay_session=%s; expires=%s; path=/; HttpOnly; SameSite=%s%s',
 					urlencode( $token ),
-					gmdate( 'D, d-M-Y H:i:s \G\M\T', $expires ),
+					gmdate( 'D, d-M-Y H:i:s \\G\\M\\T', $expires ),
+					$samesite,
 					$secure ? '; Secure' : ''
 				);
 				header( $cookie_header, false );
@@ -187,6 +190,9 @@ class ApnaStay_Auth {
 	public static function clear_session_cookie() {
 		wp_logout();
 
+		$secure   = is_ssl();
+		$samesite = $secure ? 'None' : 'Lax';
+
 		if ( ! headers_sent() ) {
 			if ( PHP_VERSION_ID >= 70300 ) {
 				setcookie(
@@ -196,13 +202,18 @@ class ApnaStay_Auth {
 						'expires'  => time() - 3600,
 						'path'     => '/',
 						'domain'   => defined( 'COOKIE_DOMAIN' ) && COOKIE_DOMAIN ? COOKIE_DOMAIN : '',
-						'secure'   => is_ssl(),
+						'secure'   => $secure,
 						'httponly' => true,
-						'samesite' => 'Lax',
+						'samesite' => $samesite,
 					)
 				);
 			} else {
-				header( 'Set-Cookie: apnastay_session=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; HttpOnly; SameSite=Lax', false );
+				$cookie_header = sprintf(
+					'Set-Cookie: apnastay_session=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; HttpOnly; SameSite=%s%s',
+					$samesite,
+					$secure ? '; Secure' : ''
+				);
+				header( $cookie_header, false );
 			}
 		}
 	}
@@ -249,6 +260,9 @@ class ApnaStay_Auth {
 				'name'                      => 'Guest',
 				'email'                     => null,
 				'role'                      => 'guest',
+				'account_type'              => 'guest',
+				'email_verified'            => false,
+				'phone_verified'            => false,
 				'owner_verification_status' => 'unverified',
 				'verification_status'       => 'unverified',
 				'capabilities'              => array(),
@@ -257,6 +271,9 @@ class ApnaStay_Auth {
 					'phone'                     => null,
 					'first_name'                => 'Guest',
 					'last_name'                 => '',
+					'account_type'              => 'guest',
+					'email_verified'            => false,
+					'phone_verified'            => false,
 					'owner_verification_status' => 'unverified',
 					'verification_status'       => 'unverified',
 				),
@@ -298,14 +315,20 @@ class ApnaStay_Auth {
 			$name = $user->user_login;
 		}
 
-		$avatar = get_user_meta( $user_id, 'apnastay_avatar', true );
-		$phone  = get_user_meta( $user_id, 'apnastay_phone', true );
+		$avatar         = get_user_meta( $user_id, 'apnastay_avatar', true );
+		$phone          = get_user_meta( $user_id, 'apnastay_phone', true );
+		$account_type   = ApnaStay_Roles::map_role_to_account_type( $role_slug );
+		$email_verified = (bool) get_user_meta( $user_id, 'email_verified', true );
+		$phone_verified = (bool) get_user_meta( $user_id, 'phone_verified', true );
 
 		return array(
 			'id'                        => (int) $user->ID,
 			'name'                      => $name,
 			'email'                     => $user->user_email,
 			'role'                      => $role_slug,
+			'account_type'              => $account_type,
+			'email_verified'            => $email_verified,
+			'phone_verified'            => $phone_verified,
 			'owner_verification_status' => $verification_status,
 			'verification_status'       => $verification_status,
 			'capabilities'              => $user_caps,
@@ -314,6 +337,9 @@ class ApnaStay_Auth {
 				'phone'                     => ! empty( $phone ) ? $phone : null,
 				'first_name'                => $user->first_name,
 				'last_name'                 => $user->last_name,
+				'account_type'              => $account_type,
+				'email_verified'            => $email_verified,
+				'phone_verified'            => $phone_verified,
 				'owner_verification_status' => $verification_status,
 				'verification_status'       => $verification_status,
 			),
@@ -400,4 +426,53 @@ class ApnaStay_Auth {
 			show_admin_bar( false );
 		}
 	}
+
+	/**
+	 * Cascade delete all user-related application data when a user is deleted via WordPress API.
+	 *
+	 * @param int      $user_id      ID of the deleted user.
+	 * @param int|null $reassign     Reassigned user ID if any.
+	 * @param WP_User  $user         User object.
+	 */
+	public static function on_user_deleted( $user_id, $reassign = null, $user = null ) {
+		global $wpdb;
+
+		// 1. Delete all properties authored by this user
+		$properties = get_posts( array(
+			'post_type'   => 'apnastay_property',
+			'author'      => $user_id,
+			'post_status' => 'any',
+			'numberposts' => -1,
+			'fields'      => 'ids',
+		) );
+
+		if ( ! empty( $properties ) ) {
+			foreach ( $properties as $pid ) {
+				wp_delete_post( (int) $pid, true );
+			}
+		}
+
+		// 2. Delete all properties owned by this user via _apnastay_owner_id meta
+		$owner_properties = get_posts( array(
+			'post_type'   => 'apnastay_property',
+			'meta_key'    => '_apnastay_owner_id',
+			'meta_value'  => $user_id,
+			'post_status' => 'any',
+			'numberposts' => -1,
+			'fields'      => 'ids',
+		) );
+
+		if ( ! empty( $owner_properties ) ) {
+			foreach ( $owner_properties as $pid ) {
+				wp_delete_post( (int) $pid, true );
+			}
+		}
+
+		// 3. Clean up any remaining usermeta
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->usermeta} WHERE user_id = %d", $user_id ) );
+
+		// 4. Clean up any orphaned postmeta
+		$wpdb->query( "DELETE pm FROM {$wpdb->postmeta} pm LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID WHERE p.ID IS NULL" );
+	}
+
 }
