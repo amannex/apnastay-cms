@@ -87,7 +87,7 @@ class ApnaStay_Auth_Controller extends WP_REST_Controller {
 				array(
 					'methods'             => WP_REST_Server::CREATABLE,
 					'callback'            => array( $this, 'switch_role' ),
-					'permission_callback' => array( $this, 'check_user_logged_in' ),
+					'permission_callback' => array( $this, 'check_switch_role_permission' ),
 					'args'                => array(
 						'role' => array(
 							'required'          => true,
@@ -153,6 +153,31 @@ class ApnaStay_Auth_Controller extends WP_REST_Controller {
 				),
 			)
 		);
+
+		// POST & GET /wp-json/apnastay/v1/auth/validate-reset-token
+		register_rest_route(
+			$this->namespace,
+			'/' . $this->rest_base . '/validate-reset-token',
+			array(
+				array(
+					'methods'             => array( WP_REST_Server::READABLE, WP_REST_Server::CREATABLE ),
+					'callback'            => array( $this, 'validate_reset_token' ),
+					'permission_callback' => '__return_true',
+					'args'                => array(
+						'key'   => array(
+							'required'          => true,
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_text_field',
+						),
+						'login' => array(
+							'required'          => true,
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_text_field',
+						),
+					),
+				),
+			)
+		);
 	}
 
 	/**
@@ -160,6 +185,21 @@ class ApnaStay_Auth_Controller extends WP_REST_Controller {
 	 *
 	 * @return bool|WP_Error
 	 */
+	/**
+	 * Permission check: Only administrators can switch user roles.
+	 *
+	 * @return bool|WP_Error
+	 */
+	public function check_switch_role_permission() {
+		if ( ! is_user_logged_in() ) {
+			return new WP_Error( 'unauthorized', __( 'You must be logged in.', 'apnastay-core' ), array( 'status' => 401 ) );
+		}
+		if ( ! current_user_can( 'manage_options' ) && ! current_user_can( 'administrator' ) ) {
+			return new WP_Error( 'rest_forbidden', __( 'You do not have permission to switch roles.', 'apnastay-core' ), array( 'status' => 403 ) );
+		}
+		return true;
+	}
+
 	public function check_user_logged_in() {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error( 'unauthorized', __( 'You must be logged in to switch roles.', 'apnastay-core' ), array( 'status' => 401 ) );
@@ -174,53 +214,227 @@ class ApnaStay_Auth_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function login( $request ) {
-		$email_or_login = $request->get_param( 'email' );
-		$password       = $request->get_param( 'password' );
+		// 1. Extract identifier and password.
+		$identifier = trim( (string) $request->get_param( 'identifier' ) );
+		if ( empty( $identifier ) ) {
+			$identifier = trim( (string) $request->get_param( 'email' ) );
+		}
+		if ( empty( $identifier ) ) {
+			$identifier = trim( (string) $request->get_param( 'phone' ) );
+		}
+		$password = (string) $request->get_param( 'password' );
 
-		// Check if email is used as login.
-		$user = get_user_by( 'email', $email_or_login );
-		if ( ! $user ) {
-			$user = get_user_by( 'login', $email_or_login );
+		// Generic error message to prevent user enumeration
+		$generic_error_message = __( 'Invalid email/phone or password.', 'apnastay-core' );
+
+		if ( '' === $identifier || '' === $password ) {
+			return apnastay_format_error_response(
+				$generic_error_message,
+				401,
+				'INVALID_CREDENTIALS'
+			);
 		}
 
-		if ( ! $user ) {
-			return apnastay_format_error_response( __( 'Invalid credentials.', 'apnastay-core' ), 401 );
+		// 2. Determine Email vs Phone and find WordPress user.
+		$user = null;
+		if ( is_email( $identifier ) ) {
+			$user = get_user_by( 'email', $identifier );
+			if ( ! $user ) {
+				$user = get_user_by( 'login', $identifier );
+			}
+		} else {
+			// Check phone number
+			$clean_phone = apnastay_sanitize_phone( $identifier );
+			if ( ! empty( $clean_phone ) ) {
+				$user = apnastay_get_user_by_phone( $clean_phone );
+			}
+			// Fallback: check if username
+			if ( ! $user ) {
+				$user = get_user_by( 'login', $identifier );
+			}
 		}
 
+		// User not found -> generic error (prevent user enumeration)
+		if ( ! $user || ! ( $user instanceof WP_User ) ) {
+			return apnastay_format_error_response(
+				$generic_error_message,
+				401,
+				'INVALID_CREDENTIALS'
+			);
+		}
+
+		// 3. Verify password using native WordPress authentication.
 		$auth = wp_authenticate( $user->user_login, $password );
 		if ( is_wp_error( $auth ) ) {
-			return apnastay_format_error_response( __( 'Invalid credentials.', 'apnastay-core' ), 401 );
+			return apnastay_format_error_response(
+				$generic_error_message,
+				401,
+				'INVALID_CREDENTIALS'
+			);
 		}
 
+		// 4. Check account status (inactive or suspended).
+		$account_status = get_user_meta( $user->ID, 'account_status', true );
+		if ( empty( $account_status ) ) {
+			$account_status = get_user_meta( $user->ID, 'apnastay_account_status', true );
+		}
+		if ( 'inactive' === strtolower( (string) $account_status ) || 'suspended' === strtolower( (string) $account_status ) || 1 === (int) $user->user_status ) {
+			return apnastay_format_error_response(
+				__( 'Your account is inactive or suspended. Please contact support.', 'apnastay-core' ),
+				403,
+				'ACCOUNT_INACTIVE'
+			);
+		}
+
+		// 5. Restrict allowed application users: only apnastay_tenant and apnastay_owner.
+		$roles             = (array) $user->roles;
+		$allowed_app_roles = array( 'apnastay_tenant', 'apnastay_owner' );
+
+		$has_allowed_role = false;
+		$canonical_role   = '';
+		foreach ( $allowed_app_roles as $allowed_role ) {
+			if ( in_array( $allowed_role, $roles, true ) ) {
+				$has_allowed_role = true;
+				$canonical_role   = ( 'apnastay_tenant' === $allowed_role ) ? 'tenant' : 'property_owner';
+				break;
+			}
+		}
+
+		if ( ! $has_allowed_role ) {
+			return apnastay_format_error_response(
+				__( 'Unauthorized role. This login portal is restricted to Tenants and Property Owners.', 'apnastay-core' ),
+				403,
+				'UNAUTHORIZED_ROLE'
+			);
+		}
+
+		// 6. Establish authentication session via secure HttpOnly cookie.
 		ApnaStay_Auth::set_session_cookie( $user->ID );
 
-		$profile = apnastay_get_user_profile( $user->ID );
+		// 7. Return safe user information (never return password or hash).
+		$first_name     = $user->first_name;
+		$last_name      = $user->last_name;
+		$phone          = apnastay_get_user_phone( $user->ID );
+		$email_verified = apnastay_is_email_verified( $user->ID );
+		$phone_verified = apnastay_is_phone_verified( $user->ID );
 
-		return apnastay_format_success_response( $profile, __( 'Login successful.', 'apnastay-core' ) );
+		$response_payload = array(
+			'success' => true,
+			'message' => __( 'Login successful.', 'apnastay-core' ),
+			'user'    => array(
+				'id'             => (int) $user->ID,
+				'first_name'     => ! empty( $first_name ) ? $first_name : $user->display_name,
+				'last_name'      => ! empty( $last_name ) ? $last_name : '',
+				'email'          => $user->user_email,
+				'phone'          => ! empty( $phone ) ? $phone : null,
+				'role'           => $canonical_role,
+				'email_verified' => $email_verified,
+				'phone_verified' => $phone_verified,
+			),
+		);
+
+		return new WP_REST_Response( $response_payload, 200 );
 	}
-
-	/**
-	 * Logout callback.
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response
-	 */
 	public function logout( $request ) {
 		ApnaStay_Auth::clear_session_cookie();
 		return apnastay_format_success_response( null, __( 'Logged out successfully.', 'apnastay-core' ) );
 	}
 
 	/**
-	 * Get current authenticated user profile.
+	 * Get current authenticated user.
+	 * Preferred endpoint: GET /wp-json/apnastay/v1/auth/me
+	 *
+	 * Derives the current user strictly from the authenticated session (wp_get_current_user).
+	 * Never accepts or trusts a user ID from the frontend request.
 	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response
 	 */
 	public function get_current_user( $request ) {
+		// Strictly derive current user from the authenticated session. Never accept a user ID from the frontend.
 		$user_id = get_current_user_id();
-		$profile = apnastay_get_user_profile( $user_id );
 
-		return new WP_REST_Response( $profile, 200 );
+		if ( ! is_user_logged_in() || ! $user_id ) {
+			// Check if caller sent invalid/tampered credentials
+			$has_auth_header = ! empty( $_SERVER['HTTP_AUTHORIZATION'] ) || ( function_exists( 'apache_request_headers' ) && ! empty( apache_request_headers()['Authorization'] ) );
+			$has_session_cookie = isset( $_COOKIE['apnastay_session'] ) && ! empty( $_COOKIE['apnastay_session'] ) && 'deleted' !== $_COOKIE['apnastay_session'];
+
+			if ( $has_auth_header || $has_session_cookie ) {
+				ApnaStay_Auth::clear_session_cookie();
+				return apnastay_format_error_response(
+					__( 'Invalid or expired authentication token.', 'apnastay-core' ),
+					401,
+					'INVALID_TOKEN'
+				);
+			}
+
+			// Unauthenticated request
+			return new WP_REST_Response(
+				array(
+					'authenticated' => false,
+					'user'          => null,
+				),
+				200
+			);
+		}
+
+		$user = get_userdata( $user_id );
+		if ( ! $user || ! ( $user instanceof WP_User ) ) {
+			return new WP_REST_Response(
+				array(
+					'authenticated' => false,
+					'user'          => null,
+				),
+				200
+			);
+		}
+
+		// Verify account status is active
+		$account_status = get_user_meta( $user_id, 'account_status', true );
+		if ( empty( $account_status ) ) {
+			$account_status = get_user_meta( $user_id, 'apnastay_account_status', true );
+		}
+		if ( 'inactive' === strtolower( (string) $account_status ) || 'suspended' === strtolower( (string) $account_status ) || 1 === (int) $user->user_status ) {
+			return apnastay_format_error_response(
+				__( 'Your account is inactive or suspended.', 'apnastay-core' ),
+				403,
+				'ACCOUNT_INACTIVE'
+			);
+		}
+
+		$role_slug      = ApnaStay_Roles::get_user_role( $user_id );
+		$canonical_role = ApnaStay_Roles::map_role_to_account_type( $role_slug );
+
+		$first_name = (string) $user->first_name;
+		$last_name  = (string) $user->last_name;
+		if ( empty( $first_name ) && ! empty( $user->display_name ) ) {
+			$parts      = preg_split( '/\s+/', $user->display_name, 2 );
+			$first_name = isset( $parts[0] ) ? $parts[0] : $user->display_name;
+			if ( empty( $last_name ) && isset( $parts[1] ) ) {
+				$last_name = $parts[1];
+			}
+		}
+
+		$phone          = apnastay_get_user_phone( $user_id );
+		$email_verified = apnastay_is_email_verified( $user_id );
+		$phone_verified = apnastay_is_phone_verified( $user_id );
+
+		// Expose only safe fields
+		$response_payload = array(
+			'authenticated' => true,
+			'user'          => array(
+				'id'             => (int) $user->ID,
+				'first_name'     => $first_name,
+				'last_name'      => $last_name,
+				'email'          => $user->user_email,
+				'phone'          => ! empty( $phone ) ? $phone : null,
+				'role'           => $canonical_role,
+				'email_verified' => $email_verified,
+				'phone_verified' => $phone_verified,
+			),
+		);
+
+		return new WP_REST_Response( $response_payload, 200 );
 	}
 
 	/**
@@ -277,88 +491,166 @@ class ApnaStay_Auth_Controller extends WP_REST_Controller {
 	 */
 	private function get_login_args() {
 		return array(
-			'email'    => array(
-				'required'          => true,
+			'identifier' => array(
+				'required'          => false,
 				'type'              => 'string',
 				'sanitize_callback' => 'sanitize_text_field',
 			),
-			'password' => array(
-				'required' => true,
+			'email'      => array(
+				'required'          => false,
+				'type'              => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'phone'      => array(
+				'required'          => false,
+				'type'              => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'password'   => array(
+				'required' => false,
 				'type'     => 'string',
 			),
 		);
 	}
-
-	/**
-	 * Register callback connecting Next.js users to WordPress users.
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response|WP_Error
-	 */
 	public function register_user( $request ) {
-		// 1. Sanitize input fields.
-		$raw_email    = trim( (string) $request->get_param( 'email' ) );
-		$email        = sanitize_email( $raw_email );
-		$password     = (string) $request->get_param( 'password' );
-		$name         = sanitize_text_field( trim( (string) $request->get_param( 'name' ) ) );
-		$first_name   = sanitize_text_field( trim( (string) $request->get_param( 'first_name' ) ) );
-		$last_name    = sanitize_text_field( trim( (string) $request->get_param( 'last_name' ) ) );
+		// 1. Retrieve and normalize raw input parameters.
+		$first_name       = trim( (string) $request->get_param( 'first_name' ) );
+		$last_name        = trim( (string) $request->get_param( 'last_name' ) );
+		$raw_email        = trim( (string) $request->get_param( 'email' ) );
+		$email            = sanitize_email( $raw_email );
+		$raw_phone        = trim( (string) $request->get_param( 'phone' ) );
+		if ( empty( $raw_phone ) ) {
+			$raw_phone = trim( (string) $request->get_param( 'phone_number' ) );
+		}
+		$password         = (string) $request->get_param( 'password' );
+		$confirm_password = (string) $request->get_param( 'confirm_password' );
 
-		// Prioritize 'account_type' parameter, fallback to 'role' parameter if not supplied.
-		$account_type = strtolower( trim( (string) $request->get_param( 'account_type' ) ) );
-		if ( empty( $account_type ) ) {
-			$account_type = strtolower( trim( (string) $request->get_param( 'role' ) ) );
-		}
-		if ( empty( $account_type ) ) {
-			$account_type = 'tenant';
-		}
-
-		// 2. Validate required fields -> 400 Bad Request.
-		if ( '' === $raw_email ) {
-			return apnastay_format_error_response( __( 'Email address is required.', 'apnastay-core' ), 400, 'missing_email' );
-		}
-		if ( '' === $password ) {
-			return apnastay_format_error_response( __( 'Password is required.', 'apnastay-core' ), 400, 'missing_password' );
+		// Role can be passed as role or account_type
+		$raw_role = trim( (string) $request->get_param( 'role' ) );
+		if ( empty( $raw_role ) ) {
+			$raw_role = trim( (string) $request->get_param( 'account_type' ) );
 		}
 
-		// 3. Email valid? -> 422 Validation Error.
+		$terms_accepted = $request->get_param( 'terms_accepted' );
+
+		// Fallback parsing if full name was provided
+		$full_name = trim( (string) $request->get_param( 'name' ) );
+		if ( ! empty( $full_name ) && ( empty( $first_name ) || empty( $last_name ) ) ) {
+			$parts      = preg_split( '/\s+/', $full_name, 2 );
+			if ( empty( $first_name ) ) {
+				$first_name = isset( $parts[0] ) ? $parts[0] : '';
+			}
+			if ( empty( $last_name ) ) {
+				$last_name = isset( $parts[1] ) ? $parts[1] : '';
+			}
+		}
+
+		// 2. Validate Required Fields -> VALIDATION_ERROR (400)
+		if ( '' === $first_name || '' === $last_name || '' === $raw_email || '' === $raw_phone || '' === $password || '' === $confirm_password || '' === $raw_role || null === $terms_accepted ) {
+			return apnastay_format_error_response(
+				__( 'All fields (first_name, last_name, email, phone, password, confirm_password, role, terms_accepted) are required.', 'apnastay-core' ),
+				400,
+				'VALIDATION_ERROR'
+			);
+		}
+
+		// 3. Validate Terms Acceptance -> TERMS_NOT_ACCEPTED (400)
+		$is_terms_accepted = ( true === $terms_accepted || 1 === (int) $terms_accepted || 'true' === strtolower( (string) $terms_accepted ) || '1' === (string) $terms_accepted );
+		if ( ! $is_terms_accepted ) {
+			return apnastay_format_error_response(
+				__( 'You must accept the Terms and Privacy Policy to register.', 'apnastay-core' ),
+				400,
+				'TERMS_NOT_ACCEPTED'
+			);
+		}
+
+		// 4. Validate Name Format -> VALIDATION_ERROR (422)
+		if ( mb_strlen( $first_name ) < 2 || ! preg_match( '/^[\p{L}\s\-\x27]+$/u', $first_name ) ) {
+			return apnastay_format_error_response(
+				__( 'First name must be at least 2 characters long and contain only valid letters.', 'apnastay-core' ),
+				422,
+				'VALIDATION_ERROR'
+			);
+		}
+		if ( mb_strlen( $last_name ) < 2 || ! preg_match( '/^[\p{L}\s\-\x27]+$/u', $last_name ) ) {
+			return apnastay_format_error_response(
+				__( 'Last name must be at least 2 characters long and contain only valid letters.', 'apnastay-core' ),
+				422,
+				'VALIDATION_ERROR'
+			);
+		}
+
+		// 5. Validate Email Format -> INVALID_EMAIL (422)
 		if ( ! is_email( $email ) ) {
-			return apnastay_format_error_response( __( 'A valid email address is required.', 'apnastay-core' ), 422, 'invalid_email' );
+			return apnastay_format_error_response(
+				__( 'A valid email address is required.', 'apnastay-core' ),
+				422,
+				'INVALID_EMAIL'
+			);
 		}
 
-		// 4. Email already exists? -> 409 Email Exists.
-		if ( email_exists( $email ) || username_exists( $email ) ) {
-			return apnastay_format_error_response( __( 'An account with this email already exists.', 'apnastay-core' ), 409, 'email_exists' );
+		// 6. Validate Phone Format -> INVALID_PHONE (422)
+		$clean_phone = apnastay_sanitize_phone( $raw_phone );
+		$digits_only = preg_replace( '/\D/', '', $clean_phone );
+		if ( strlen( $digits_only ) < 10 || strlen( $digits_only ) > 15 ) {
+			return apnastay_format_error_response(
+				__( 'A valid 10-to-15 digit phone number is required.', 'apnastay-core' ),
+				422,
+				'INVALID_PHONE'
+			);
 		}
 
-		// 5. Password acceptable? -> 422 Validation Error.
+		// 7. Validate Role -> INVALID_ROLE (422)
+		// Strictly allow only "tenant" or "property_owner" (with "owner" alias). Never allow administrator from public registration.
+		$canonical_role = ApnaStay_Roles::normalize_account_type( $raw_role );
+		if ( false === $canonical_role ) {
+			return apnastay_format_error_response(
+				__( 'Invalid role. Only "tenant" or "property_owner" are allowed.', 'apnastay-core' ),
+				422,
+				'INVALID_ROLE'
+			);
+		}
+
+		// 8. Validate Password Strength -> WEAK_PASSWORD (422)
 		if ( strlen( $password ) < 8 ) {
-			return apnastay_format_error_response( __( 'Password must be at least 8 characters long.', 'apnastay-core' ), 422, 'weak_password' );
+			return apnastay_format_error_response(
+				__( 'Password must be at least 8 characters long.', 'apnastay-core' ),
+				422,
+				'WEAK_PASSWORD'
+			);
 		}
 
-		// 6. Valid account type? -> 422 Validation Error.
-		// Strictly allow only "tenant" or "owner". Never allow "administrator" or any other role from public registration.
-		$role_map = array(
-			'tenant' => 'apnastay_tenant',
-			'owner'  => 'apnastay_owner',
-		);
-
-		if ( ! isset( $role_map[ $account_type ] ) ) {
-			return apnastay_format_error_response( __( 'Invalid account_type. Only "tenant" or "owner" are allowed.', 'apnastay-core' ), 422, 'invalid_account_type' );
+		// 9. Validate Password Confirmation -> PASSWORD_MISMATCH (400)
+		if ( $password !== $confirm_password ) {
+			return apnastay_format_error_response(
+				__( 'Passwords do not match.', 'apnastay-core' ),
+				400,
+				'PASSWORD_MISMATCH'
+			);
 		}
 
-		$role_slug = $role_map[ $account_type ];
-
-		// Parse full name into first and last name if individual fields were not provided.
-		if ( ! empty( $name ) && empty( $first_name ) && empty( $last_name ) ) {
-			$parts      = preg_split( '/\s+/', $name, 2 );
-			$first_name = isset( $parts[0] ) ? $parts[0] : '';
-			$last_name  = isset( $parts[1] ) ? $parts[1] : '';
+		// 10. Check Email Uniqueness -> EMAIL_ALREADY_EXISTS (409)
+		if ( email_exists( $email ) || username_exists( $email ) ) {
+			return apnastay_format_error_response(
+				__( 'An account with this email already exists.', 'apnastay-core' ),
+				409,
+				'EMAIL_ALREADY_EXISTS'
+			);
 		}
 
-		$display_name = ! empty( $name ) ? $name : trim( "$first_name $last_name" );
+		// 11. Check Phone Uniqueness -> PHONE_ALREADY_EXISTS (409)
+		if ( apnastay_is_phone_registered( $clean_phone ) ) {
+			return apnastay_format_error_response(
+				__( 'An account with this phone number already exists.', 'apnastay-core' ),
+				409,
+				'PHONE_ALREADY_EXISTS'
+			);
+		}
 
-		// 7. Create account.
+		// 12. Create WordPress Account (Native password hashing)
+		$role_slug    = ApnaStay_Roles::map_account_type_to_role( $canonical_role );
+		$display_name = trim( "$first_name $last_name" );
+
 		$user_id = wp_insert_user(
 			array(
 				'user_login'   => $email,
@@ -366,35 +658,50 @@ class ApnaStay_Auth_Controller extends WP_REST_Controller {
 				'user_pass'    => $password,
 				'first_name'   => $first_name,
 				'last_name'    => $last_name,
-				'display_name' => ! empty( $display_name ) ? $display_name : $email,
+				'display_name' => $display_name,
 				'role'         => $role_slug,
 			)
 		);
 
 		if ( is_wp_error( $user_id ) ) {
-			return apnastay_format_error_response( $user_id->get_error_message(), 500, 'user_creation_failed' );
+			return apnastay_format_error_response(
+				$user_id->get_error_message(),
+				500,
+				'USER_CREATION_FAILED'
+			);
 		}
 
-		// Set initial verification status: Owners start unverified until KYC; Tenants default to verified.
-		$status = ( 'apnastay_owner' === $role_slug ) ? 'unverified' : 'verified';
-		update_user_meta( $user_id, 'owner_verification_status', $status );
-		update_user_meta( $user_id, 'apnastay_verification_status', $status );
+		// 13. Store User Metadata
+		apnastay_set_user_phone( $user_id, $clean_phone );
+		update_user_meta( $user_id, 'email_verified', 0 );
+		update_user_meta( $user_id, 'phone_verified', 0 );
 
-		// Establish session automatically via secure HttpOnly cookie.
+		$verification_status = ( 'apnastay_owner' === $role_slug ) ? 'unverified' : 'verified';
+		update_user_meta( $user_id, 'owner_verification_status', $verification_status );
+		update_user_meta( $user_id, 'apnastay_verification_status', $verification_status );
+		update_user_meta( $user_id, 'apnastay_terms_accepted_at', current_time( 'mysql' ) );
+
+		// Establish session cookie so new user is authenticated immediately
 		ApnaStay_Auth::set_session_cookie( $user_id );
 
-		$profile = apnastay_get_user_profile( $user_id );
+		// 14. Construct Safe Response Payload (Never return passwords or hashes)
+		$response_payload = array(
+			'success' => true,
+			'message' => __( 'Registration successful.', 'apnastay-core' ),
+			'user'    => array(
+				'id'             => (int) $user_id,
+				'first_name'     => $first_name,
+				'last_name'      => $last_name,
+				'email'          => $email,
+				'phone'          => $clean_phone,
+				'role'           => $canonical_role,
+				'email_verified' => false,
+				'phone_verified' => false,
+			),
+		);
 
-		// Return 201 Created on success.
-		return apnastay_format_success_response( $profile, __( 'Registration successful.', 'apnastay-core' ), 201 );
+		return new WP_REST_Response( $response_payload, 201 );
 	}
-
-	/**
-	 * Forgot password callback.
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response
-	 */
 	public function forgot_password( $request ) {
 		$email = sanitize_email( $request->get_param( 'email' ) );
 
@@ -404,7 +711,7 @@ class ApnaStay_Auth_Controller extends WP_REST_Controller {
 				$key = get_password_reset_key( $user );
 				if ( ! is_wp_error( $key ) ) {
 					$frontend_url = function_exists( 'apnastay_get_headless_frontend_url' ) ? apnastay_get_headless_frontend_url() : trailingslashit( get_site_url() );
-					$reset_url    = $frontend_url . 'auth/reset-password?key=' . rawurlencode( $key ) . '&login=' . rawurlencode( $user->user_login );
+					$reset_url    = $frontend_url . 'reset-password?key=' . rawurlencode( $key ) . '&login=' . rawurlencode( $user->user_login );
 					$subject      = __( '[ApnaStay] Password Reset Request', 'apnastay-core' );
 					$message      = sprintf(
 						__( "Someone has requested a password reset for the following account:\n\nUser: %1\$s\n\nIf this was a mistake, just ignore this email.\n\nTo reset your password, visit the following address:\n%2\$s", 'apnastay-core' ),
@@ -426,12 +733,21 @@ class ApnaStay_Auth_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function reset_password( $request ) {
-		$key      = $request->get_param( 'key' );
-		$login    = $request->get_param( 'login' );
-		$password = $request->get_param( 'password' );
+		$key              = sanitize_text_field( (string) $request->get_param( 'key' ) );
+		$login            = sanitize_text_field( (string) $request->get_param( 'login' ) );
+		$password         = (string) $request->get_param( 'password' );
+		$confirm_password = (string) $request->get_param( 'confirm_password' );
 
-		if ( empty( $password ) || strlen( $password ) < 6 ) {
-			return apnastay_format_error_response( __( 'Password must be at least 6 characters long.', 'apnastay-core' ), 400 );
+		if ( empty( $key ) || empty( $login ) ) {
+			return apnastay_format_error_response( __( 'Reset key and login identifier are required.', 'apnastay-core' ), 400, 'MISSING_RESET_CREDENTIALS' );
+		}
+
+		if ( strlen( $password ) < 8 ) {
+			return apnastay_format_error_response( __( 'Password must be at least 8 characters long.', 'apnastay-core' ), 422, 'WEAK_PASSWORD' );
+		}
+
+		if ( ! empty( $confirm_password ) && $password !== $confirm_password ) {
+			return apnastay_format_error_response( __( 'Passwords do not match.', 'apnastay-core' ), 400, 'PASSWORD_MISMATCH' );
 		}
 
 		$user = get_user_by( 'login', $login );
@@ -440,17 +756,76 @@ class ApnaStay_Auth_Controller extends WP_REST_Controller {
 		}
 
 		if ( ! $user ) {
-			return apnastay_format_error_response( __( 'Invalid or expired password reset token.', 'apnastay-core' ), 400 );
+			return apnastay_format_error_response( __( 'Invalid or expired password reset token.', 'apnastay-core' ), 400, 'INVALID_RESET_TOKEN' );
 		}
 
 		$check = check_password_reset_key( $key, $user->user_login );
 		if ( is_wp_error( $check ) ) {
-			return apnastay_format_error_response( __( 'Invalid or expired password reset token.', 'apnastay-core' ), 400 );
+			return apnastay_format_error_response( __( 'Invalid or expired password reset token.', 'apnastay-core' ), 400, 'INVALID_RESET_TOKEN' );
 		}
 
 		reset_password( $user, $password );
 
 		return apnastay_format_success_response( null, __( 'Password reset successful. You can now login.', 'apnastay-core' ) );
+	}
+
+	/**
+	 * Validate password reset token without changing password.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function validate_reset_token( $request ) {
+		$key   = sanitize_text_field( (string) $request->get_param( 'key' ) );
+		$login = sanitize_text_field( (string) $request->get_param( 'login' ) );
+
+		if ( empty( $key ) || empty( $login ) ) {
+			return new WP_REST_Response(
+				array(
+					'success' => false,
+					'valid'   => false,
+					'message' => __( 'Missing reset key or login identifier.', 'apnastay-core' ),
+				),
+				400
+			);
+		}
+
+		$user = get_user_by( 'login', $login );
+		if ( ! $user ) {
+			$user = get_user_by( 'email', $login );
+		}
+
+		if ( ! $user ) {
+			return new WP_REST_Response(
+				array(
+					'success' => false,
+					'valid'   => false,
+					'message' => __( 'This password reset link is invalid or has expired.', 'apnastay-core' ),
+				),
+				400
+			);
+		}
+
+		$check = check_password_reset_key( $key, $user->user_login );
+		if ( is_wp_error( $check ) ) {
+			return new WP_REST_Response(
+				array(
+					'success' => false,
+					'valid'   => false,
+					'message' => __( 'This password reset link is invalid or has expired.', 'apnastay-core' ),
+				),
+				400
+			);
+		}
+
+		return new WP_REST_Response(
+			array(
+				'success' => true,
+				'valid'   => true,
+				'message' => __( 'Reset link is valid.', 'apnastay-core' ),
+			),
+			200
+		);
 	}
 
 	/**
@@ -460,44 +835,44 @@ class ApnaStay_Auth_Controller extends WP_REST_Controller {
 	 */
 	private function get_register_args() {
 		return array(
-			'email'        => array(
-				'required'          => true,
+			'first_name'       => array(
+				'required'          => false,
 				'type'              => 'string',
-				'sanitize_callback' => 'sanitize_email',
+				'sanitize_callback' => 'sanitize_text_field',
 			),
-			'password'     => array(
-				'required' => true,
+			'last_name'        => array(
+				'required'          => false,
+				'type'              => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'email'            => array(
+				'required'          => false,
+				'type'              => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'phone'            => array(
+				'required'          => false,
+				'type'              => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'password'         => array(
+				'required' => false,
 				'type'     => 'string',
 			),
-			'name'         => array(
+			'confirm_password' => array(
+				'required' => false,
+				'type'     => 'string',
+			),
+			'role'             => array(
 				'required'          => false,
 				'type'              => 'string',
 				'sanitize_callback' => 'sanitize_text_field',
 			),
-			'account_type' => array(
-				'required'          => false,
-				'type'              => 'string',
-				'default'           => 'tenant',
-				'sanitize_callback' => 'sanitize_text_field',
-			),
-			'first_name'   => array(
-				'required'          => false,
-				'type'              => 'string',
-				'sanitize_callback' => 'sanitize_text_field',
-			),
-			'last_name'    => array(
-				'required'          => false,
-				'type'              => 'string',
-				'sanitize_callback' => 'sanitize_text_field',
+			'terms_accepted'   => array(
+				'required' => false,
 			),
 		);
 	}
-
-	/**
-	 * Get forgot password arguments schema.
-	 *
-	 * @return array
-	 */
 	private function get_forgot_password_args() {
 		return array(
 			'email' => array(
@@ -524,8 +899,12 @@ class ApnaStay_Auth_Controller extends WP_REST_Controller {
 				'type'              => 'string',
 				'sanitize_callback' => 'sanitize_text_field',
 			),
-			'password' => array(
+			'password'         => array(
 				'required' => true,
+				'type'     => 'string',
+			),
+			'confirm_password' => array(
+				'required' => false,
 				'type'     => 'string',
 			),
 		);

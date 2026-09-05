@@ -40,14 +40,40 @@ echo "========================================================================\n
 echo "           APNASTAY PLATFORM - RBAC & API PERMISSION MATRIX TEST           \n";
 echo "========================================================================\n\n";
 
-// 1. Locate Test Users.
-$tenant_user = get_user_by( 'email', 'tenant@test.com' );
-$owner_user  = get_user_by( 'email', 'owner@test.com' );
-$admin_user  = get_user_by( 'email', 'admin@test.com' );
+// 1. Locate Test Users dynamically by role (provision temporary mock users if needed).
+$created_temp_tenant = false;
+$created_temp_owner  = false;
 
-if ( ! $tenant_user || ! $owner_user || ! $admin_user ) {
-	die( "ERROR: Test users (tenant@test.com, owner@test.com, admin@test.com) not found. Please create them via WP-CLI first.\n" );
+$tenants = get_users( array( 'role' => 'apnastay_tenant', 'number' => 1 ) );
+if ( ! empty( $tenants ) ) {
+	$tenant_user = $tenants[0];
+} else {
+	$tid = wp_insert_user( array(
+		'user_login' => 'temp_test_tenant_' . time(),
+		'user_pass'  => wp_generate_password(),
+		'user_email' => 'temp_tenant_' . time() . '@matrix.local',
+		'role'       => 'apnastay_tenant',
+	) );
+	$tenant_user = get_userdata( $tid );
+	$created_temp_tenant = true;
 }
+
+$owners = get_users( array( 'role' => 'apnastay_owner', 'number' => 1 ) );
+if ( ! empty( $owners ) ) {
+	$owner_user = $owners[0];
+} else {
+	$oid = wp_insert_user( array(
+		'user_login' => 'temp_test_owner_' . time(),
+		'user_pass'  => wp_generate_password(),
+		'user_email' => 'temp_owner_' . time() . '@matrix.local',
+		'role'       => 'apnastay_owner',
+	) );
+	$owner_user = get_userdata( $oid );
+	$created_temp_owner = true;
+}
+
+$admins = get_users( array( 'role' => 'administrator', 'number' => 1 ) );
+$admin_user = ! empty( $admins ) ? $admins[0] : get_user_by( 'ID', 1 );
 
 $test_subjects = array(
 	'Guest'  => 0,
@@ -248,6 +274,15 @@ wp_delete_post( $dummy_post_id, true );
 
 // Reset current user.
 wp_set_current_user( 0 );
+
+if ( $created_temp_tenant && $tenant_user ) {
+	require_once ABSPATH . 'wp-admin/includes/user.php';
+	wp_delete_user( $tenant_user->ID );
+}
+if ( $created_temp_owner && $owner_user ) {
+	require_once ABSPATH . 'wp-admin/includes/user.php';
+	wp_delete_user( $owner_user->ID );
+}
 
 echo "\n========================================================================\n";
 if ( $matrix_pass && $guest_pass && $tenant_pass && $tenant_admin_pass && $owner_admin_pass && $admin_pass && $unverified_pass && $verified_pass && $own_pass && $other_pass && $admin_edit_pass ) {

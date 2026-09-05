@@ -31,6 +31,46 @@ function apnastay_has_role( $user_id, $role ) {
 }
 
 /**
+ * Normalize an account type string ('tenant', 'property_owner', 'owner' -> canonical).
+ *
+ * @param string $account_type Account type input.
+ * @return string|false Canonical account type or false.
+ */
+function apnastay_normalize_account_type( $account_type ) {
+	return ApnaStay_Roles::normalize_account_type( $account_type );
+}
+
+/**
+ * Map account type to WordPress internal role slug.
+ *
+ * @param string $account_type Account type ('tenant' or 'property_owner'/'owner').
+ * @return string|false Role slug or false.
+ */
+function apnastay_map_account_type_to_role( $account_type ) {
+	return ApnaStay_Roles::map_account_type_to_role( $account_type );
+}
+
+/**
+ * Map internal WordPress role slug to public account type.
+ *
+ * @param string $role Internal role slug.
+ * @return string Public account type.
+ */
+function apnastay_map_role_to_account_type( $role ) {
+	return ApnaStay_Roles::map_role_to_account_type( $role );
+}
+
+/**
+ * Check if an account type is valid for MVP.
+ *
+ * @param string $account_type Account type to check.
+ * @return bool
+ */
+function apnastay_is_valid_account_type( $account_type ) {
+	return ApnaStay_Roles::is_valid_account_type( $account_type );
+}
+
+/**
  * Get formatted user profile with ApnaStay metadata.
  *
  * @param int $user_id User ID.
@@ -234,3 +274,172 @@ function apnastay_validate_property_publication( $user_id, $property_data = arra
 	return true;
 }
 
+/**
+ * Sanitize and standardize a phone number.
+ *
+ * @param string $phone Raw phone string.
+ * @return string Sanitized phone number.
+ */
+function apnastay_sanitize_phone( $phone ) {
+	$clean = preg_replace( "/[^0-9+]/", "", trim( (string) $phone ) );
+	return $clean;
+}
+
+/**
+ * Get user ID associated with a phone number.
+ *
+ * @param string $phone Phone number to look up.
+ * @return WP_User|false WP_User object or false if not found.
+ */
+function apnastay_get_user_by_phone( $phone ) {
+	$clean_phone = apnastay_sanitize_phone( $phone );
+	if ( empty( $clean_phone ) ) {
+		return false;
+	}
+
+	global $wpdb;
+	$user_id = $wpdb->get_var(
+		$wpdb->prepare(
+			"SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'apnastay_phone' AND meta_value = %s LIMIT 1",
+			$clean_phone
+		)
+	);
+
+	if ( $user_id ) {
+		return get_userdata( (int) $user_id );
+	}
+
+	return false;
+}
+
+/**
+ * Check if a phone number is already registered to a user.
+ *
+ * @param string $phone Phone number.
+ * @param int    $exclude_user_id Optional user ID to exclude from check.
+ * @return bool True if registered to another user, false otherwise.
+ */
+function apnastay_is_phone_registered( $phone, $exclude_user_id = 0 ) {
+	$clean_phone = apnastay_sanitize_phone( $phone );
+	if ( empty( $clean_phone ) ) {
+		return false;
+	}
+
+	global $wpdb;
+	if ( $exclude_user_id ) {
+		$found = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'apnastay_phone' AND meta_value = %s AND user_id != %d LIMIT 1",
+				$clean_phone,
+				$exclude_user_id
+			)
+		);
+	} else {
+		$found = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'apnastay_phone' AND meta_value = %s LIMIT 1",
+				$clean_phone
+			)
+		);
+	}
+
+	return ! empty( $found );
+}
+
+/**
+ * Get user phone number.
+ *
+ * @param int $user_id User ID.
+ * @return string|null
+ */
+function apnastay_get_user_phone( $user_id ) {
+	$phone = get_user_meta( $user_id, 'apnastay_phone', true );
+	return ! empty( $phone ) ? (string) $phone : null;
+}
+
+/**
+ * Set user phone number.
+ *
+ * @param int    $user_id User ID.
+ * @param string $phone Phone number.
+ * @return bool|int
+ */
+function apnastay_set_user_phone( $user_id, $phone ) {
+	$clean = apnastay_sanitize_phone( $phone );
+	return update_user_meta( $user_id, 'apnastay_phone', $clean );
+}
+
+/**
+ * Check if email is verified.
+ *
+ * @param int $user_id User ID.
+ * @return bool
+ */
+function apnastay_is_email_verified( $user_id ) {
+	return (bool) get_user_meta( $user_id, 'email_verified', true );
+}
+
+/**
+ * Check if phone is verified.
+ *
+ * @param int $user_id User ID.
+ * @return bool
+ */
+function apnastay_is_phone_verified( $user_id ) {
+	return (bool) get_user_meta( $user_id, 'phone_verified', true );
+}
+
+
+/**
+ * Get canonical Next.js Headless Frontend base URL.
+ *
+ * @return string Trailing-slashed URL.
+ */
+function apnastay_get_headless_frontend_url() {
+	if ( defined( 'APNASTAY_FRONTEND_URL' ) && ! empty( APNASTAY_FRONTEND_URL ) ) {
+		return trailingslashit( APNASTAY_FRONTEND_URL );
+	}
+	$saved = get_option( 'apnastay_frontend_url' );
+	if ( ! empty( $saved ) ) {
+		return trailingslashit( $saved );
+	}
+	return 'http://localhost:3000/';
+}
+
+
+/**
+ * Purge all orphaned user data across the entire database.
+ * Deletes orphaned usermeta, properties, and postmeta when a user is deleted directly in phpMyAdmin or SQL.
+ */
+function apnastay_cleanup_orphaned_user_data() {
+	global $wpdb;
+
+	// 1. Delete orphaned properties
+	$orphaned_properties = $wpdb->get_col( "
+		SELECT p.ID FROM {$wpdb->posts} p
+		LEFT JOIN {$wpdb->users} u ON p.post_author = u.ID
+		WHERE p.post_type = 'apnastay_property'
+		AND (u.ID IS NULL OR p.post_author NOT IN (SELECT ID FROM {$wpdb->users}))
+	" );
+
+	if ( ! empty( $orphaned_properties ) ) {
+		foreach ( $orphaned_properties as $pid ) {
+			wp_delete_post( (int) $pid, true );
+		}
+	}
+
+	// 2. Delete orphaned usermeta
+	$wpdb->query( "
+		DELETE um FROM {$wpdb->usermeta} um
+		LEFT JOIN {$wpdb->users} u ON um.user_id = u.ID
+		WHERE u.ID IS NULL
+	" );
+
+	// 3. Delete orphaned postmeta
+	$wpdb->query( "
+		DELETE pm FROM {$wpdb->postmeta} pm
+		LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+		WHERE p.ID IS NULL
+	" );
+}
+add_action( 'rest_api_init', 'apnastay_cleanup_orphaned_user_data', 20 );

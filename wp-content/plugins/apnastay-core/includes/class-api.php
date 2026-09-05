@@ -59,6 +59,10 @@ class ApnaStay_API {
 		$user_controller = new ApnaStay_User_Controller();
 		$user_controller->register_routes();
 
+		// Register Tenant Controller with RBAC permission callbacks.
+		$tenant_controller = new ApnaStay_Tenant_Controller();
+		$tenant_controller->register_routes();
+
 		// Register Property Controller with RBAC permission callbacks.
 		$property_controller = new ApnaStay_Property_Controller();
 		$property_controller->register_routes();

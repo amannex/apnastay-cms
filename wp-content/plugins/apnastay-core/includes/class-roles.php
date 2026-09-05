@@ -22,6 +22,20 @@ class ApnaStay_Roles {
 	private static $instance = null;
 
 	/**
+	 * Canonical role slugs.
+	 */
+	const ROLE_TENANT         = 'apnastay_tenant';
+	const ROLE_PROPERTY_OWNER = 'apnastay_owner';
+	const ROLE_ADMINISTRATOR  = 'administrator';
+	const ROLE_GUEST          = 'guest';
+
+	/**
+	 * Canonical MVP account types.
+	 */
+	const ACCOUNT_TYPE_TENANT         = 'tenant';
+	const ACCOUNT_TYPE_PROPERTY_OWNER = 'property_owner';
+
+	/**
 	 * Get singleton instance.
 	 *
 	 * @return ApnaStay_Roles
@@ -38,6 +52,77 @@ class ApnaStay_Roles {
 	 */
 	public function init() {
 		add_action( 'init', array( __CLASS__, 'register_roles' ), 1 );
+		add_action( 'init', array( __CLASS__, 'maybe_migrate_legacy_users' ), 2 );
+	}
+
+	/**
+	 * Normalize account type string.
+	 * Maps 'tenant' -> 'tenant', 'property_owner' -> 'property_owner', 'owner' -> 'property_owner' (alias).
+	 *
+	 * @param string $account_type Input account type.
+	 * @return string|false Canonical account type or false if invalid.
+	 */
+	public static function normalize_account_type( $account_type ) {
+		$clean = strtolower( trim( (string) $account_type ) );
+		if ( 'tenant' === $clean ) {
+			return self::ACCOUNT_TYPE_TENANT;
+		}
+		if ( 'property_owner' === $clean || 'owner' === $clean ) {
+			return self::ACCOUNT_TYPE_PROPERTY_OWNER;
+		}
+		return false;
+	}
+
+	/**
+	 * Validate if account type is one of allowed MVP account types.
+	 *
+	 * @param string $account_type Input account type.
+	 * @return bool
+	 */
+	public static function is_valid_account_type( $account_type ) {
+		return false !== self::normalize_account_type( $account_type );
+	}
+
+	/**
+	 * Map account type to WordPress internal role slug.
+	 *
+	 * @param string $account_type Input account type ('tenant' or 'property_owner'/'owner').
+	 * @return string|false Role slug (e.g., 'apnastay_tenant' or 'apnastay_owner') or false if invalid.
+	 */
+	public static function map_account_type_to_role( $account_type ) {
+		$normalized = self::normalize_account_type( $account_type );
+		if ( self::ACCOUNT_TYPE_TENANT === $normalized ) {
+			return self::ROLE_TENANT;
+		}
+		if ( self::ACCOUNT_TYPE_PROPERTY_OWNER === $normalized ) {
+			return self::ROLE_PROPERTY_OWNER;
+		}
+		return false;
+	}
+
+	/**
+	 * Map internal WordPress role slug to public account type.
+	 *
+	 * @param string $role Internal role slug.
+	 * @return string Public account type ('tenant', 'property_owner', 'admin', 'guest').
+	 */
+	public static function map_role_to_account_type( $role ) {
+		$clean = strtolower( trim( (string) $role ) );
+		switch ( $clean ) {
+			case 'apnastay_tenant':
+			case 'tenant':
+				return self::ACCOUNT_TYPE_TENANT;
+			case 'apnastay_owner':
+			case 'apnastay_property_owner':
+			case 'property_owner':
+			case 'owner':
+				return self::ACCOUNT_TYPE_PROPERTY_OWNER;
+			case 'administrator':
+			case 'admin':
+				return 'admin';
+			default:
+				return self::ROLE_GUEST;
+		}
 	}
 
 	/**
@@ -48,7 +133,7 @@ class ApnaStay_Roles {
 	 */
 	public static function get_capabilities() {
 		return array(
-			'apnastay_tenant' => array(
+			self::ROLE_TENANT         => array(
 				'read'                     => true,
 				'apnastay_manage_wishlist'  => true,
 				'apnastay_book_visit'       => true,
@@ -59,7 +144,7 @@ class ApnaStay_Roles {
 				'apnastay_create_review'    => true,
 				'apnastay_chat'             => true,
 			),
-			'apnastay_owner'  => array(
+			self::ROLE_PROPERTY_OWNER => array(
 				'read'                          => true,
 				'upload_files'                  => true,
 				'apnastay_create_property'       => true,
@@ -73,7 +158,7 @@ class ApnaStay_Roles {
 				'apnastay_view_owner_payments'   => true,
 				'apnastay_chat'                  => true,
 			),
-			'administrator'  => array(
+			self::ROLE_ADMINISTRATOR  => array(
 				'apnastay_verify_owner'      => true,
 				'apnastay_verify_property'   => true,
 				'apnastay_manage_users'      => true,
@@ -118,31 +203,35 @@ class ApnaStay_Roles {
 
 	/**
 	 * Register ApnaStay RBAC roles and capabilities.
-	 * Guest is an unauthenticated visitor, never registered as a WP database role.
+	 * Removes obsolete and guest roles.
 	 */
 	public static function register_roles() {
 		// Ensure guest role is never registered as a database role.
 		remove_role( 'apnastay_guest' );
 		remove_role( 'guest' );
 
+		// Remove legacy roles.
+		remove_role( 'ownstay_tenant' );
+		remove_role( 'ownstay_owner' );
+
 		$caps = self::get_capabilities();
 
 		// 1. Tenant Role (apnastay_tenant)
 		add_role(
-			'apnastay_tenant',
-			'Tenant',
-			$caps['apnastay_tenant']
+			self::ROLE_TENANT,
+			'ApnaStay Tenant',
+			$caps[ self::ROLE_TENANT ]
 		);
 
 		// 2. Property Owner Role (apnastay_owner)
 		add_role(
-			'apnastay_owner',
-			'Property Owner',
-			$caps['apnastay_owner']
+			self::ROLE_PROPERTY_OWNER,
+			'ApnaStay Property Owner',
+			$caps[ self::ROLE_PROPERTY_OWNER ]
 		);
 
 		// 3. Grant ALL ApnaStay platform capabilities to WordPress Administrator.
-		$admin_role = get_role( 'administrator' );
+		$admin_role = get_role( self::ROLE_ADMINISTRATOR );
 		if ( $admin_role ) {
 			foreach ( self::get_all_platform_capabilities() as $cap ) {
 				$admin_role->add_cap( $cap );
@@ -155,14 +244,87 @@ class ApnaStay_Roles {
 	 */
 	public static function remove_roles() {
 		remove_role( 'apnastay_guest' );
-		remove_role( 'apnastay_tenant' );
-		remove_role( 'apnastay_owner' );
+		remove_role( 'guest' );
+		remove_role( 'ownstay_tenant' );
+		remove_role( 'ownstay_owner' );
+		remove_role( self::ROLE_TENANT );
+		remove_role( self::ROLE_PROPERTY_OWNER );
 
-		$admin_role = get_role( 'administrator' );
+		$admin_role = get_role( self::ROLE_ADMINISTRATOR );
 		if ( $admin_role ) {
 			foreach ( self::get_all_platform_capabilities() as $cap ) {
 				$admin_role->remove_cap( $cap );
 			}
+		}
+	}
+
+	/**
+	 * Migrate legacy test users from ownstay_* to apnastay_* roles and sanitize usermeta.
+	 *
+	 * @return array Migration summary statistics.
+	 */
+	public static function migrate_legacy_users() {
+		$migrated_count = 0;
+		$users          = get_users( array( 'fields' => 'all' ) );
+
+		foreach ( $users as $user ) {
+			$needs_update = false;
+			$roles        = (array) $user->roles;
+			$caps         = (array) $user->caps;
+
+			// Tenant migration
+			if ( in_array( 'ownstay_tenant', $roles, true ) || isset( $caps['ownstay_tenant'] ) || ( 'tenant' === $user->user_login && empty( $roles ) ) ) {
+				unset( $user->caps['ownstay_tenant'], $user->caps['ownstay_owner'] );
+				update_user_meta( $user->ID, $GLOBALS['wpdb']->prefix . 'capabilities', array( self::ROLE_TENANT => true ) );
+				$user->set_role( self::ROLE_TENANT );
+				$needs_update = true;
+			}
+
+			// Owner migration
+			if ( in_array( 'ownstay_owner', $roles, true ) || isset( $caps['ownstay_owner'] ) || ( 'owner' === $user->user_login && empty( $roles ) ) ) {
+				unset( $user->caps['ownstay_tenant'], $user->caps['ownstay_owner'] );
+				update_user_meta( $user->ID, $GLOBALS['wpdb']->prefix . 'capabilities', array( self::ROLE_PROPERTY_OWNER => true ) );
+				$user->set_role( self::ROLE_PROPERTY_OWNER );
+				$needs_update = true;
+			}
+
+			// Meta migration: ownstay_verification_status -> owner_verification_status & apnastay_verification_status
+			$legacy_verification = get_user_meta( $user->ID, 'ownstay_verification_status', true );
+			if ( ! empty( $legacy_verification ) ) {
+				update_user_meta( $user->ID, 'owner_verification_status', sanitize_text_field( $legacy_verification ) );
+				update_user_meta( $user->ID, 'apnastay_verification_status', sanitize_text_field( $legacy_verification ) );
+				delete_user_meta( $user->ID, 'ownstay_verification_status' );
+			}
+
+			// Future-proofing fields initialization if missing
+			if ( '' === get_user_meta( $user->ID, 'email_verified', true ) ) {
+				// Admin users default to verified; others 0
+				$is_admin = in_array( 'administrator', $user->roles, true );
+				update_user_meta( $user->ID, 'email_verified', $is_admin ? 1 : 0 );
+			}
+			if ( '' === get_user_meta( $user->ID, 'phone_verified', true ) ) {
+				$is_admin = in_array( 'administrator', $user->roles, true );
+				update_user_meta( $user->ID, 'phone_verified', $is_admin ? 1 : 0 );
+			}
+
+			if ( $needs_update ) {
+				$migrated_count++;
+			}
+		}
+
+		update_option( 'apnastay_legacy_users_migrated_v1', time() );
+
+		return array(
+			'migrated_count' => $migrated_count,
+		);
+	}
+
+	/**
+	 * Run migration once if not yet executed.
+	 */
+	public static function maybe_migrate_legacy_users() {
+		if ( ! get_option( 'apnastay_legacy_users_migrated_v1' ) ) {
+			self::migrate_legacy_users();
 		}
 	}
 
@@ -178,23 +340,23 @@ class ApnaStay_Roles {
 		}
 
 		if ( ! $user_id ) {
-			return 'guest';
+			return self::ROLE_GUEST;
 		}
 
 		$user = get_userdata( $user_id );
 		if ( ! $user || empty( $user->roles ) ) {
-			return 'guest';
+			return self::ROLE_GUEST;
 		}
 
 		// Priority order for ApnaStay roles.
-		if ( in_array( 'administrator', $user->roles, true ) ) {
-			return 'administrator';
+		if ( in_array( self::ROLE_ADMINISTRATOR, $user->roles, true ) ) {
+			return self::ROLE_ADMINISTRATOR;
 		}
-		if ( in_array( 'apnastay_owner', $user->roles, true ) ) {
-			return 'apnastay_owner';
+		if ( in_array( self::ROLE_PROPERTY_OWNER, $user->roles, true ) ) {
+			return self::ROLE_PROPERTY_OWNER;
 		}
-		if ( in_array( 'apnastay_tenant', $user->roles, true ) ) {
-			return 'apnastay_tenant';
+		if ( in_array( self::ROLE_TENANT, $user->roles, true ) ) {
+			return self::ROLE_TENANT;
 		}
 
 		return reset( $user->roles );

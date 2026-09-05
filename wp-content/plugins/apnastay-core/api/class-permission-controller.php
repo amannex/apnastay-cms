@@ -38,20 +38,40 @@ class ApnaStay_Permission_Controller {
 	 * @return WP_REST_Response
 	 */
 	public function get_permission_matrix( $request ) {
-		// Locate test users.
-		$tenant_user = get_user_by( 'email', 'tenant@test.com' );
-		$owner_user  = get_user_by( 'email', 'owner@test.com' );
-		$admin_user  = get_user_by( 'email', 'admin@test.com' );
+		// Locate users dynamically by role (or provision temporary mock subjects)
+		$created_temp_tenant = false;
+		$created_temp_owner  = false;
 
-		if ( ! $tenant_user || ! $owner_user || ! $admin_user ) {
-			return new WP_REST_Response(
-				array(
-					'success' => false,
-					'error'   => 'Test accounts (tenant@test.com, owner@test.com, admin@test.com) not found. Run WP-CLI seeding first.',
-				),
-				404
-			);
+		$tenants = get_users( array( 'role' => 'apnastay_tenant', 'number' => 1 ) );
+		if ( ! empty( $tenants ) ) {
+			$tenant_user = $tenants[0];
+		} else {
+			$tid = wp_insert_user( array(
+				'user_login' => 'temp_matrix_tenant_' . time(),
+				'user_pass'  => wp_generate_password(),
+				'user_email' => 'temp_tenant_' . time() . '@matrix.local',
+				'role'       => 'apnastay_tenant',
+			) );
+			$tenant_user = get_userdata( $tid );
+			$created_temp_tenant = true;
 		}
+
+		$owners = get_users( array( 'role' => 'apnastay_owner', 'number' => 1 ) );
+		if ( ! empty( $owners ) ) {
+			$owner_user = $owners[0];
+		} else {
+			$oid = wp_insert_user( array(
+				'user_login' => 'temp_matrix_owner_' . time(),
+				'user_pass'  => wp_generate_password(),
+				'user_email' => 'temp_owner_' . time() . '@matrix.local',
+				'role'       => 'apnastay_owner',
+			) );
+			$owner_user = get_userdata( $oid );
+			$created_temp_owner = true;
+		}
+
+		$admins = get_users( array( 'role' => 'administrator', 'number' => 1 ) );
+		$admin_user = ! empty( $admins ) ? $admins[0] : get_user_by( 'ID', 1 );
 
 		$subjects = array(
 			'Guest'  => 0,
@@ -239,6 +259,15 @@ class ApnaStay_Permission_Controller {
 				$all_assertions_pass = false;
 				break;
 			}
+		}
+
+		if ( $created_temp_tenant && $tenant_user ) {
+			require_once ABSPATH . 'wp-admin/includes/user.php';
+			wp_delete_user( $tenant_user->ID );
+		}
+		if ( $created_temp_owner && $owner_user ) {
+			require_once ABSPATH . 'wp-admin/includes/user.php';
+			wp_delete_user( $owner_user->ID );
 		}
 
 		return new WP_REST_Response(
