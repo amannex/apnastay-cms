@@ -323,8 +323,10 @@ class ApnaStay_Auth_Controller extends WP_REST_Controller {
 			'message' => __( 'Login successful.', 'apnastay-core' ),
 			'user'    => array(
 				'id'             => (int) $user->ID,
+				'name'           => trim( ( ! empty( $first_name ) ? $first_name : $user->display_name ) . " " . ( ! empty( $last_name ) ? $last_name : "" ) ) ?: $user->display_name ?: $user->user_login,
 				'first_name'     => ! empty( $first_name ) ? $first_name : $user->display_name,
 				'last_name'      => ! empty( $last_name ) ? $last_name : '',
+				'display_name'   => $user->display_name,
 				'email'          => $user->user_email,
 				'phone'          => ! empty( $phone ) ? $phone : null,
 				'role'           => $canonical_role,
@@ -424,8 +426,10 @@ class ApnaStay_Auth_Controller extends WP_REST_Controller {
 			'authenticated' => true,
 			'user'          => array(
 				'id'             => (int) $user->ID,
+				'name'           => trim( "$first_name $last_name" ) ?: $user->display_name ?: $user->user_login,
 				'first_name'     => $first_name,
 				'last_name'      => $last_name,
+				'display_name'   => $user->display_name,
 				'email'          => $user->user_email,
 				'phone'          => ! empty( $phone ) ? $phone : null,
 				'role'           => $canonical_role,
@@ -690,8 +694,10 @@ class ApnaStay_Auth_Controller extends WP_REST_Controller {
 			'message' => __( 'Registration successful.', 'apnastay-core' ),
 			'user'    => array(
 				'id'             => (int) $user_id,
+				'name'           => trim( "$first_name $last_name" ) ?: $display_name ?: $email,
 				'first_name'     => $first_name,
 				'last_name'      => $last_name,
+				'display_name'   => $display_name,
 				'email'          => $email,
 				'phone'          => $clean_phone,
 				'role'           => $canonical_role,
