@@ -33,8 +33,6 @@ require_once APNASTAY_CORE_PATH . 'includes/class-api.php';
 // Include REST API Controllers.
 require_once APNASTAY_CORE_PATH . 'api/class-auth-controller.php';
 require_once APNASTAY_CORE_PATH . 'api/class-user-controller.php';
-require_once APNASTAY_CORE_PATH . 'api/class-property-controller.php';
-require_once APNASTAY_CORE_PATH . 'api/class-tenant-controller.php';
 require_once APNASTAY_CORE_PATH . 'api/class-permission-controller.php';
 
 // Include Admin Components.

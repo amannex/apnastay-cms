@@ -13,14 +13,19 @@
  * Also tests direct REST API endpoints & business rules (Phase 15-18).
  *
  * Usage via CLI:
- *   php test-permission-matrix.php
+ *   php wp-content/plugins/apnastay-core/tests/test-permission-matrix.php
  */
 
-// Bootstrap WordPress CLI Environment.
+// Enforce CLI execution only.
+if ( php_sapi_name() !== 'cli' ) {
+	die( "ERROR: This automated test runner must be executed from CLI only.\n" );
+}
+
+// Bootstrap WordPress CLI Environment dynamically.
 $wp_load_paths = array(
+	dirname( __FILE__, 5 ) . '/wp-load.php',
 	dirname( __FILE__, 4 ) . '/wp-load.php',
 	dirname( __FILE__, 3 ) . '/wp-load.php',
-	'/Users/amansaifi/Documents/apnastay-cms/wp-load.php',
 );
 
 $loaded = false;

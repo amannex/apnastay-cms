@@ -59,6 +59,8 @@ wp-content/mu-plugins/
 # --------------------------
 wp-content/plugins/*
 !wp-content/plugins/apnastay-core/
+!wp-content/plugins/apnastay-properties/
+!wp-content/plugins/apnastay-webhooks/
 
 wp-content/themes/*
 !wp-content/themes/apnastay/
