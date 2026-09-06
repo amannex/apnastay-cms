@@ -51,8 +51,17 @@ class ApnaStay_Roles {
 	 * Initialize hooks.
 	 */
 	public function init() {
-		add_action( 'init', array( __CLASS__, 'register_roles' ), 1 );
+		add_action( 'init', array( __CLASS__, 'maybe_register_roles' ), 1 );
 		add_action( 'init', array( __CLASS__, 'maybe_migrate_legacy_users' ), 2 );
+	}
+
+	/**
+	 * Run role registration once if not yet registered.
+	 */
+	public static function maybe_register_roles() {
+		if ( ! get_option( 'apnastay_roles_registered_v1' ) || ! get_role( self::ROLE_TENANT ) ) {
+			self::register_roles();
+		}
 	}
 
 	/**
@@ -237,6 +246,8 @@ class ApnaStay_Roles {
 				$admin_role->add_cap( $cap );
 			}
 		}
+
+		update_option( 'apnastay_roles_registered_v1', time() );
 	}
 
 	/**
@@ -256,6 +267,8 @@ class ApnaStay_Roles {
 				$admin_role->remove_cap( $cap );
 			}
 		}
+
+		delete_option( 'apnastay_roles_registered_v1' );
 	}
 
 	/**
