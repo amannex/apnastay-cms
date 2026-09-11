@@ -619,6 +619,8 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 				"availability"       => $avail ?: array( "type" => "immediate" ),
 				"location"           => $location,
 				"photos"             => $this->normalize_property_photos( is_array( $p_raw = get_post_meta( $prop_id, "_apnastay_photos", true ) ) ? $p_raw : ( json_decode( $p_raw, true ) ?: array() ) ),
+				"amenities"          => is_array( $am_raw = get_post_meta( $prop_id, "_apnastay_amenities", true ) ) ? $am_raw : ( json_decode( $am_raw, true ) ?: array() ),
+				"customAmenities"    => is_array( $cm_raw = get_post_meta( $prop_id, "_apnastay_custom_amenities", true ) ) ? $cm_raw : ( json_decode( $cm_raw, true ) ?: array() ),
 				"units"              => array(),
 				"createdAt"          => $post->post_date_gmt,
 				"updatedAt"          => $post->post_modified_gmt,
@@ -661,6 +663,10 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$avail      = is_array( $avail_raw ) ? $avail_raw : json_decode( $avail_raw, true );
 		$photos_raw = get_post_meta( $post_id, "_apnastay_photos", true );
 		$photos     = $this->normalize_property_photos( is_array( $photos_raw ) ? $photos_raw : ( json_decode( $photos_raw, true ) ?: array() ) );
+		$amenities_raw = get_post_meta( $post_id, "_apnastay_amenities", true );
+		$amenities     = is_array( $amenities_raw ) ? $amenities_raw : ( json_decode( $amenities_raw, true ) ?: array() );
+		$custom_raw    = get_post_meta( $post_id, "_apnastay_custom_amenities", true );
+		$custom_amenities = is_array( $custom_raw ) ? $custom_raw : ( json_decode( $custom_raw, true ) ?: array() );
 
 		$location = ( $city || $addr1 || $locality || $pincode ) ? array(
 			"addressLine1"     => $addr1 ?: "",
@@ -688,6 +694,8 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 			"availability"       => $avail ?: array( "type" => "immediate" ),
 			"location"           => $location,
 			"photos"             => $photos,
+			"amenities"          => $amenities,
+			"customAmenities"    => $custom_amenities,
 			"units"              => array(),
 			"createdAt"          => $post->post_date_gmt,
 			"updatedAt"          => $post->post_modified_gmt,
@@ -746,6 +754,14 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 			update_post_meta( $post_id, "_apnastay_photos", $params["photos"] );
 		}
 
+		if ( isset( $params["amenities"] ) && is_array( $params["amenities"] ) ) {
+			update_post_meta( $post_id, "_apnastay_amenities", array_values( array_unique( $params["amenities"] ) ) );
+		}
+
+		if ( isset( $params["customAmenities"] ) && is_array( $params["customAmenities"] ) ) {
+			update_post_meta( $post_id, "_apnastay_custom_amenities", array_values( array_unique( $params["customAmenities"] ) ) );
+		}
+
 		if ( isset( $params["location"] ) && is_array( $params["location"] ) ) {
 			if ( isset( $params["location"]["addressLine1"] ) ) {
 				update_post_meta( $post_id, "_apnastay_address_line1", sanitize_text_field( $params["location"]["addressLine1"] ) );
@@ -800,6 +816,12 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$stored_photos = get_post_meta( $post_id, "_apnastay_photos", true );
 		if ( ! empty( $stored_photos ) && is_array( $stored_photos ) && count( $stored_photos ) > 0 ) {
 			$score += 20;
+		}
+		$stored_am = get_post_meta( $post_id, "_apnastay_amenities", true );
+		$stored_cm = get_post_meta( $post_id, "_apnastay_custom_amenities", true );
+		if ( ( ! empty( $stored_am ) && is_array( $stored_am ) && count( $stored_am ) > 0 ) ||
+		     ( ! empty( $stored_cm ) && is_array( $stored_cm ) && count( $stored_cm ) > 0 ) ) {
+			$score += 10;
 		}
 		update_post_meta( $post_id, "_apnastay_completeness_score", min( 100, $score ) );
 
