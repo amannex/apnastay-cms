@@ -95,6 +95,35 @@ class ApnaStay_Meta {
 			)
 		);
 
+		// Property Photos Array (Phase 5)
+		register_post_meta(
+			'apnastay_property',
+			'_apnastay_photos',
+			array(
+				'show_in_rest' => array(
+					'schema' => array(
+						'type'  => 'array',
+						'items' => array(
+							'type'       => 'object',
+							'properties' => array(
+								'id'           => array( 'type' => array( 'string', 'integer' ) ),
+								'url'          => array( 'type' => 'string' ),
+								'thumbnailUrl' => array( 'type' => 'string' ),
+								'category'     => array( 'type' => 'string' ),
+								'isCover'      => array( 'type' => 'boolean' ),
+								'order'        => array( 'type' => 'integer' ),
+								'fileName'     => array( 'type' => 'string' ),
+								'fileSize'     => array( 'type' => 'number' ),
+								'mimeType'     => array( 'type' => 'string' ),
+							),
+						),
+					),
+				),
+				'single'       => true,
+				'type'         => 'array',
+			)
+		);
+
 		// Unit Beds Array
 		register_post_meta(
 			'apnastay_unit',

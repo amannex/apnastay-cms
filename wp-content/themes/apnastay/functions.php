@@ -9,16 +9,43 @@
 // ============================================================================
 
 if ( ! defined( 'APNASTAY_WEBHOOKS_VERSION' ) ) {
-    add_action( 'rest_api_init', function () {
-        $allowed_origins = [
-            'https://apnastay.vercel.app',
-            'http://localhost:3000',
-            'http://localhost:3001',
-        ];
+    if ( ! function_exists( 'apnastay_is_allowed_cors_origin' ) ) {
+        /**
+         * Fallback origin validator if apnastay-webhooks is not active.
+         */
+        function apnastay_is_allowed_cors_origin( $origin ) {
+            if ( empty( $origin ) ) {
+                return false;
+            }
 
+            $origin = rtrim( strtolower( trim( $origin ) ), '/' );
+
+            if ( defined( 'APNASTAY_FRONTEND_URL' ) && ! empty( APNASTAY_FRONTEND_URL ) ) {
+                if ( rtrim( strtolower( APNASTAY_FRONTEND_URL ), '/' ) === $origin ) {
+                    return true;
+                }
+            }
+
+            if ( preg_match( '/^https:\/\/(.*\.)?apnastay\.(in|com)(:[0-9]+)?$/', $origin ) ) {
+                return true;
+            }
+
+            if ( preg_match( '/^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.vercel\.app$/', $origin ) ) {
+                return true;
+            }
+
+            if ( preg_match( '/^http:\/\/(localhost|127\.0\.0\.1)(:[0-9]+)?$/', $origin ) ) {
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    add_action( 'rest_api_init', function () {
         $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 
-        if ( in_array( $origin, $allowed_origins, true ) ) {
+        if ( apnastay_is_allowed_cors_origin( $origin ) ) {
             header( "Access-Control-Allow-Origin: {$origin}" );
             header( 'Access-Control-Allow-Credentials: true' );
             header( 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS' );
@@ -28,15 +55,9 @@ if ( ! defined( 'APNASTAY_WEBHOOKS_VERSION' ) ) {
 
     add_action( 'init', function () {
         if ( isset( $_SERVER['REQUEST_METHOD'] ) && 'OPTIONS' === $_SERVER['REQUEST_METHOD'] ) {
-            $allowed_origins = [
-                'https://apnastay.vercel.app',
-                'http://localhost:3000',
-                'http://localhost:3001',
-            ];
-
             $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 
-            if ( in_array( $origin, $allowed_origins, true ) ) {
+            if ( apnastay_is_allowed_cors_origin( $origin ) ) {
                 header( "Access-Control-Allow-Origin: {$origin}" );
                 header( 'Access-Control-Allow-Credentials: true' );
                 header( 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS' );
