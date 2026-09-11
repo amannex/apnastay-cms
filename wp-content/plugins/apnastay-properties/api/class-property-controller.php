@@ -504,6 +504,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 			"description"        => "",
 			"status"             => "draft",
 			"completenessScore"  => 15,
+			"photos"             => array(),
 			"units"              => array(),
 			"createdAt"          => current_time( "mysql", true ),
 			"updatedAt"          => current_time( "mysql", true ),
@@ -515,6 +516,51 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 	/**
 	 * Get owner properties list.
 	 */
+	
+	/**
+	 * Normalize property photos so that attachment URLs always resolve dynamically
+	 * to the current active environment (avoiding hardcoded production or localhost domains).
+	 */
+	private function normalize_property_photos( $photos ) {
+		if ( empty( $photos ) || ! is_array( $photos ) ) {
+			return array();
+		}
+
+		$upload_dir = wp_upload_dir();
+		$base_url   = $upload_dir['baseurl'];
+		$normalized = array();
+
+		foreach ( $photos as $photo ) {
+			if ( ! is_array( $photo ) ) {
+				continue;
+			}
+
+			// If photo has an attachment ID, dynamically resolve its URL for current environment
+			if ( ! empty( $photo['id'] ) && is_numeric( $photo['id'] ) ) {
+				$att_id = (int) $photo['id'];
+				$url = wp_get_attachment_url( $att_id );
+				if ( $url ) {
+					$photo['url'] = $url;
+					$thumb_data = wp_get_attachment_image_src( $att_id, 'medium' );
+					$photo['thumbnailUrl'] = $thumb_data ? $thumb_data[0] : $url;
+				}
+			} else {
+				// If URL contains cms.apnastay.in but we are currently running on localhost,
+				// rewrite the base URL so the browser can load the local asset.
+				if ( ! empty( $photo['url'] ) && strpos( $photo['url'], 'https://cms.apnastay.in/wp-content/uploads' ) !== false ) {
+					$photo['url'] = str_replace( 'https://cms.apnastay.in/wp-content/uploads', $base_url, $photo['url'] );
+				}
+				if ( ! empty( $photo['thumbnailUrl'] ) && strpos( $photo['thumbnailUrl'], 'https://cms.apnastay.in/wp-content/uploads' ) !== false ) {
+					$photo['thumbnailUrl'] = str_replace( 'https://cms.apnastay.in/wp-content/uploads', $base_url, $photo['thumbnailUrl'] );
+				}
+			}
+
+			$normalized[] = $photo;
+		}
+
+		return $normalized;
+	}
+
 	public function get_owner_properties( $request ) {
 		$user_id = get_current_user_id();
 		$args    = array(
@@ -572,6 +618,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 				"pricing"            => array( "monthlyRent" => $rent ),
 				"availability"       => $avail ?: array( "type" => "immediate" ),
 				"location"           => $location,
+				"photos"             => $this->normalize_property_photos( is_array( $p_raw = get_post_meta( $prop_id, "_apnastay_photos", true ) ) ? $p_raw : ( json_decode( $p_raw, true ) ?: array() ) ),
 				"units"              => array(),
 				"createdAt"          => $post->post_date_gmt,
 				"updatedAt"          => $post->post_modified_gmt,
@@ -613,7 +660,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$avail_raw  = get_post_meta( $post_id, "_apnastay_availability", true );
 		$avail      = is_array( $avail_raw ) ? $avail_raw : json_decode( $avail_raw, true );
 		$photos_raw = get_post_meta( $post_id, "_apnastay_photos", true );
-		$photos     = is_array( $photos_raw ) ? $photos_raw : ( json_decode( $photos_raw, true ) ?: array() );
+		$photos     = $this->normalize_property_photos( is_array( $photos_raw ) ? $photos_raw : ( json_decode( $photos_raw, true ) ?: array() ) );
 
 		$location = ( $city || $addr1 || $locality || $pincode ) ? array(
 			"addressLine1"     => $addr1 ?: "",
@@ -877,7 +924,8 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$score = (int) get_post_meta( $post_id, "_apnastay_completeness_score", true ) ?: 15;
 		update_post_meta( $post_id, "_apnastay_completeness_score", min( 100, $score + 20 ) );
 
-		return new WP_REST_Response( array( "success" => true, "data" => $new_photo ), 201 );
+		$norm_new = $this->normalize_property_photos( array( $new_photo ) );
+		return new WP_REST_Response( array( "success" => true, "data" => $norm_new[0] ), 201 );
 	}
 
 	/**
@@ -926,7 +974,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 
 		update_post_meta( $post_id, "_apnastay_photos", $photos );
 
-		return new WP_REST_Response( array( "success" => true, "data" => array( "deletedPhotoId" => $photo_id, "remainingPhotos" => $photos ) ), 200 );
+		return new WP_REST_Response( array( "success" => true, "data" => array( "deletedPhotoId" => $photo_id, "remainingPhotos" => $this->normalize_property_photos( $photos ) ) ), 200 );
 	}
 
 	/**
@@ -973,7 +1021,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 
 		update_post_meta( $post_id, "_apnastay_photos", $reordered );
 
-		return new WP_REST_Response( array( "success" => true, "data" => $reordered ), 200 );
+		return new WP_REST_Response( array( "success" => true, "data" => $this->normalize_property_photos( $reordered ) ), 200 );
 	}
 
 	/**
@@ -1018,7 +1066,8 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 
 		update_post_meta( $post_id, "_apnastay_photos", $photos );
 
-		return new WP_REST_Response( array( "success" => true, "data" => $updated_photo ), 200 );
+		$norm_up = $updated_photo ? $this->normalize_property_photos( array( $updated_photo ) ) : null;
+		return new WP_REST_Response( array( "success" => true, "data" => $norm_up ? $norm_up[0] : null ), 200 );
 	}
 
 }

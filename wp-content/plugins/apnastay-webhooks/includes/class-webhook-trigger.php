@@ -44,7 +44,7 @@ class ApnaStay_Webhook_Trigger {
 			if ( defined( 'APNASTAY_FRONTEND_URL' ) && ! empty( APNASTAY_FRONTEND_URL ) ) {
 				$base_url = rtrim( APNASTAY_FRONTEND_URL, '/' );
 			} else {
-				$base_url = get_option( 'apnastay_frontend_url', 'https://apnastay.com' );
+				$base_url = get_option( 'apnastay_frontend_url', 'https://apnastay.in' );
 				$base_url = rtrim( $base_url, '/' );
 			}
 
