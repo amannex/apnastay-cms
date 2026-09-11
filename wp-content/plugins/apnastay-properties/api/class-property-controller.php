@@ -68,6 +68,50 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 			)
 		);
 
+		// POST /wp-json/apnastay/v1/owner/properties/<id>/photos (Phase 5)
+		register_rest_route(
+			$this->namespace,
+			"/owner/properties/(?P<id>[a-zA-Z0-9_-]+)/photos",
+			array(
+				array(
+					"methods"             => WP_REST_Server::CREATABLE,
+					"callback"            => array( $this, "upload_owner_photo" ),
+					"permission_callback" => array( $this, "check_owner_authenticated" ),
+				),
+			)
+		);
+
+		// PUT /wp-json/apnastay/v1/owner/properties/<id>/photos/reorder (Phase 5)
+		register_rest_route(
+			$this->namespace,
+			"/owner/properties/(?P<id>[a-zA-Z0-9_-]+)/photos/reorder",
+			array(
+				array(
+					"methods"             => WP_REST_Server::EDITABLE,
+					"callback"            => array( $this, "reorder_owner_photos" ),
+					"permission_callback" => array( $this, "check_owner_authenticated" ),
+				),
+			)
+		);
+
+		// PUT & DELETE /wp-json/apnastay/v1/owner/properties/<id>/photos/<photo_id> (Phase 5)
+		register_rest_route(
+			$this->namespace,
+			"/owner/properties/(?P<id>[a-zA-Z0-9_-]+)/photos/(?P<photo_id>[a-zA-Z0-9_-]+)",
+			array(
+				array(
+					"methods"             => WP_REST_Server::EDITABLE,
+					"callback"            => array( $this, "update_owner_photo" ),
+					"permission_callback" => array( $this, "check_owner_authenticated" ),
+				),
+				array(
+					"methods"             => WP_REST_Server::DELETABLE,
+					"callback"            => array( $this, "delete_owner_photo" ),
+					"permission_callback" => array( $this, "check_owner_authenticated" ),
+				),
+			)
+		);
+
 		// GET, PUT/PATCH, DELETE /wp-json/apnastay/v1/owner/properties/<id>
 		register_rest_route(
 			$this->namespace,
@@ -568,6 +612,8 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$hide_exact = get_post_meta( $post_id, "_apnastay_hide_exact_address", true );
 		$avail_raw  = get_post_meta( $post_id, "_apnastay_availability", true );
 		$avail      = is_array( $avail_raw ) ? $avail_raw : json_decode( $avail_raw, true );
+		$photos_raw = get_post_meta( $post_id, "_apnastay_photos", true );
+		$photos     = is_array( $photos_raw ) ? $photos_raw : ( json_decode( $photos_raw, true ) ?: array() );
 
 		$location = ( $city || $addr1 || $locality || $pincode ) ? array(
 			"addressLine1"     => $addr1 ?: "",
@@ -594,6 +640,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 			"pricing"            => array( "monthlyRent" => $rent ),
 			"availability"       => $avail ?: array( "type" => "immediate" ),
 			"location"           => $location,
+			"photos"             => $photos,
 			"units"              => array(),
 			"createdAt"          => $post->post_date_gmt,
 			"updatedAt"          => $post->post_modified_gmt,
@@ -648,6 +695,9 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		if ( isset( $params["pricing"]["monthlyRent"] ) ) {
 			update_post_meta( $post_id, "_apnastay_rent", floatval( $params["pricing"]["monthlyRent"] ) );
 		}
+		if ( isset( $params["photos"] ) && is_array( $params["photos"] ) ) {
+			update_post_meta( $post_id, "_apnastay_photos", $params["photos"] );
+		}
 
 		if ( isset( $params["location"] ) && is_array( $params["location"] ) ) {
 			if ( isset( $params["location"]["addressLine1"] ) ) {
@@ -700,6 +750,10 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		} elseif ( ! empty( $stored_city ) ) {
 			$score += 8;
 		}
+		$stored_photos = get_post_meta( $post_id, "_apnastay_photos", true );
+		if ( ! empty( $stored_photos ) && is_array( $stored_photos ) && count( $stored_photos ) > 0 ) {
+			$score += 20;
+		}
 		update_post_meta( $post_id, "_apnastay_completeness_score", min( 100, $score ) );
 
 		return $this->get_owner_property_by_id( $request );
@@ -740,4 +794,231 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 			),
 		);
 	}
+
+	/**
+	 * Upload photo to owner property.
+	 */
+	public function upload_owner_photo( $request ) {
+		$raw_id  = $request["id"];
+		$post_id = (int) str_replace( "prop-", "", $raw_id );
+		$post    = get_post( $post_id );
+
+		if ( ! $post || "apnastay_property" !== $post->post_type ) {
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+		}
+
+		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+		}
+
+		$photos_raw = get_post_meta( $post_id, "_apnastay_photos", true );
+		$photos     = is_array( $photos_raw ) ? $photos_raw : ( json_decode( $photos_raw, true ) ?: array() );
+
+		$files = $request->get_file_params();
+		$params = $request->get_params();
+
+		$photo_id = "photo_" . time() . "_" . wp_generate_password( 6, false );
+		$url = "";
+		$thumbnail_url = "";
+		$filename = "";
+		$filesize = 0;
+		$mime_type = "image/jpeg";
+
+		if ( ! empty( $files["file"] ) ) {
+			require_once ABSPATH . "wp-admin/includes/file.php";
+			require_once ABSPATH . "wp-admin/includes/image.php";
+			require_once ABSPATH . "wp-admin/includes/media.php";
+
+			$attachment_id = media_handle_upload( "file", $post_id );
+			if ( is_wp_error( $attachment_id ) ) {
+				return $attachment_id;
+			}
+			$photo_id = $attachment_id;
+			$url = wp_get_attachment_url( $attachment_id );
+			$thumb_data = wp_get_attachment_image_src( $attachment_id, "medium" );
+			$thumbnail_url = $thumb_data ? $thumb_data[0] : $url;
+			$filename = basename( get_attached_file( $attachment_id ) );
+			$filesize = filesize( get_attached_file( $attachment_id ) );
+			$mime_type = get_post_mime_type( $attachment_id );
+		} elseif ( ! empty( $params["dataUrl"] ) ) {
+			$url = sanitize_text_field( $params["dataUrl"] );
+			$thumbnail_url = $url;
+			$filename = sanitize_text_field( $params["fileName"] ?? "photo.jpg" );
+			$filesize = intval( $params["fileSize"] ?? 0 );
+			$mime_type = sanitize_text_field( $params["mimeType"] ?? "image/jpeg" );
+		}
+
+		$is_first = empty( $photos );
+		$is_cover = isset( $params["isCover"] ) ? ( $params["isCover"] === true || $params["isCover"] === "true" ) : $is_first;
+
+		if ( $is_cover ) {
+			foreach ( $photos as &$p ) {
+				$p["isCover"] = false;
+			}
+		}
+
+		$new_photo = array(
+			"id"           => $photo_id,
+			"url"          => $url,
+			"thumbnailUrl" => $thumbnail_url ?: $url,
+			"category"     => sanitize_text_field( $params["category"] ?? "" ),
+			"isCover"      => $is_cover,
+			"order"        => count( $photos ),
+			"fileName"     => $filename,
+			"fileSize"     => $filesize,
+			"mimeType"     => $mime_type,
+			"uploadedAt"   => gmdate( "Y-m-d\TH:i:s\Z" ),
+		);
+
+		$photos[] = $new_photo;
+		update_post_meta( $post_id, "_apnastay_photos", $photos );
+
+		// Update completeness score
+		$score = (int) get_post_meta( $post_id, "_apnastay_completeness_score", true ) ?: 15;
+		update_post_meta( $post_id, "_apnastay_completeness_score", min( 100, $score + 20 ) );
+
+		return new WP_REST_Response( array( "success" => true, "data" => $new_photo ), 201 );
+	}
+
+	/**
+	 * Delete photo from owner property.
+	 */
+	public function delete_owner_photo( $request ) {
+		$raw_id   = $request["id"];
+		$photo_id = $request["photo_id"];
+		$post_id  = (int) str_replace( "prop-", "", $raw_id );
+		$post     = get_post( $post_id );
+
+		if ( ! $post || "apnastay_property" !== $post->post_type ) {
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+		}
+
+		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+		}
+
+		$photos_raw = get_post_meta( $post_id, "_apnastay_photos", true );
+		$photos     = is_array( $photos_raw ) ? $photos_raw : ( json_decode( $photos_raw, true ) ?: array() );
+
+		$found_index = -1;
+		$deleted_is_cover = false;
+		foreach ( $photos as $idx => $p ) {
+			if ( (string) $p["id"] === (string) $photo_id ) {
+				$found_index = $idx;
+				$deleted_is_cover = ! empty( $p["isCover"] );
+				break;
+			}
+		}
+
+		if ( $found_index === -1 ) {
+			return new WP_Error( "not_found", __( "Photo not found.", "apnastay-properties" ), array( "status" => 404 ) );
+		}
+
+		array_splice( $photos, $found_index, 1 );
+
+		// Reorder & cover fallback
+		foreach ( $photos as $idx => &$p ) {
+			$p["order"] = $idx;
+		}
+		if ( $deleted_is_cover && count( $photos ) > 0 ) {
+			$photos[0]["isCover"] = true;
+		}
+
+		update_post_meta( $post_id, "_apnastay_photos", $photos );
+
+		return new WP_REST_Response( array( "success" => true, "data" => array( "deletedPhotoId" => $photo_id, "remainingPhotos" => $photos ) ), 200 );
+	}
+
+	/**
+	 * Reorder owner property photos.
+	 */
+	public function reorder_owner_photos( $request ) {
+		$raw_id  = $request["id"];
+		$post_id = (int) str_replace( "prop-", "", $raw_id );
+		$post    = get_post( $post_id );
+
+		if ( ! $post || "apnastay_property" !== $post->post_type ) {
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+		}
+
+		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+		}
+
+		$params = $request->get_json_params();
+		$ordered_ids = $params["photoIds"] ?? array();
+
+		$photos_raw = get_post_meta( $post_id, "_apnastay_photos", true );
+		$photos     = is_array( $photos_raw ) ? $photos_raw : ( json_decode( $photos_raw, true ) ?: array() );
+
+		$photo_map = array();
+		foreach ( $photos as $p ) {
+			$photo_map[(string) $p["id"]] = $p;
+		}
+
+		$reordered = array();
+		foreach ( $ordered_ids as $idx => $pid ) {
+			if ( isset( $photo_map[(string) $pid] ) ) {
+				$item = $photo_map[(string) $pid];
+				$item["order"] = $idx;
+				$reordered[] = $item;
+				unset( $photo_map[(string) $pid] );
+			}
+		}
+
+		foreach ( $photo_map as $p ) {
+			$p["order"] = count( $reordered );
+			$reordered[] = $p;
+		}
+
+		update_post_meta( $post_id, "_apnastay_photos", $reordered );
+
+		return new WP_REST_Response( array( "success" => true, "data" => $reordered ), 200 );
+	}
+
+	/**
+	 * Update single photo (category or isCover).
+	 */
+	public function update_owner_photo( $request ) {
+		$raw_id   = $request["id"];
+		$photo_id = $request["photo_id"];
+		$post_id  = (int) str_replace( "prop-", "", $raw_id );
+		$post     = get_post( $post_id );
+
+		if ( ! $post || "apnastay_property" !== $post->post_type ) {
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+		}
+
+		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+		}
+
+		$params = $request->get_json_params();
+		$photos_raw = get_post_meta( $post_id, "_apnastay_photos", true );
+		$photos     = is_array( $photos_raw ) ? $photos_raw : ( json_decode( $photos_raw, true ) ?: array() );
+
+		$updated_photo = null;
+		if ( ! empty( $params["isCover"] ) ) {
+			foreach ( $photos as &$p ) {
+				$p["isCover"] = ( (string) $p["id"] === (string) $photo_id );
+				if ( (string) $p["id"] === (string) $photo_id ) {
+					$updated_photo = $p;
+				}
+			}
+		}
+
+		if ( isset( $params["category"] ) ) {
+			foreach ( $photos as &$p ) {
+				if ( (string) $p["id"] === (string) $photo_id ) {
+					$p["category"] = sanitize_text_field( $params["category"] );
+					$updated_photo = $p;
+				}
+			}
+		}
+
+		update_post_meta( $post_id, "_apnastay_photos", $photos );
+
+		return new WP_REST_Response( array( "success" => true, "data" => $updated_photo ), 200 );
+	}
+
 }
