@@ -95,6 +95,54 @@ class ApnaStay_Meta {
 			)
 		);
 
+		// Property Amenities Array (Phase 6)
+		register_post_meta(
+			'apnastay_property',
+			'_apnastay_amenities',
+			array(
+				'show_in_rest' => array(
+					'schema' => array(
+						'type'  => 'array',
+						'items' => array( 'type' => 'string' ),
+					),
+				),
+				'single'       => true,
+				'type'         => 'array',
+			)
+		);
+
+		// Custom Amenities Array (Phase 6)
+		register_post_meta(
+			'apnastay_property',
+			'_apnastay_custom_amenities',
+			array(
+				'show_in_rest' => array(
+					'schema' => array(
+						'type'  => 'array',
+						'items' => array( 'type' => 'string' ),
+					),
+				),
+				'single'       => true,
+				'type'         => 'array',
+			)
+		);
+
+		// Property Units & Rooms Array (Phase 7)
+		register_post_meta(
+			'apnastay_property',
+			'_apnastay_units',
+			array(
+				'show_in_rest' => array(
+					'schema' => array(
+						'type'  => 'array',
+						'items' => array( 'type' => 'object' ),
+					),
+				),
+				'single'       => true,
+				'type'         => 'array',
+			)
+		);
+
 		// Property Photos Array (Phase 5)
 		register_post_meta(
 			'apnastay_property',
