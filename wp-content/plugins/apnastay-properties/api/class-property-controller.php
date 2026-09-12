@@ -135,6 +135,71 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 			)
 		);
 
+		// POST /wp-json/apnastay/v1/owner/properties/<id>/publish
+		register_rest_route(
+			$this->namespace,
+			"/owner/properties/(?P<id>[a-zA-Z0-9_-]+)/publish",
+			array(
+				array(
+					"methods"             => WP_REST_Server::CREATABLE,
+					"callback"            => array( $this, "publish_owner_property" ),
+					"permission_callback" => array( $this, "check_owner_authenticated" ),
+				),
+			)
+		);
+
+		// POST /wp-json/apnastay/v1/owner/properties/<id>/unpublish
+		register_rest_route(
+			$this->namespace,
+			"/owner/properties/(?P<id>[a-zA-Z0-9_-]+)/unpublish",
+			array(
+				array(
+					"methods"             => WP_REST_Server::CREATABLE,
+					"callback"            => array( $this, "unpublish_owner_property" ),
+					"permission_callback" => array( $this, "check_owner_authenticated" ),
+				),
+			)
+		);
+
+		// POST /wp-json/apnastay/v1/owner/properties/<id>/archive
+		register_rest_route(
+			$this->namespace,
+			"/owner/properties/(?P<id>[a-zA-Z0-9_-]+)/archive",
+			array(
+				array(
+					"methods"             => WP_REST_Server::CREATABLE,
+					"callback"            => array( $this, "archive_owner_property" ),
+					"permission_callback" => array( $this, "check_owner_authenticated" ),
+				),
+			)
+		);
+
+		// POST /wp-json/apnastay/v1/owner/properties/<id>/restore
+		register_rest_route(
+			$this->namespace,
+			"/owner/properties/(?P<id>[a-zA-Z0-9_-]+)/restore",
+			array(
+				array(
+					"methods"             => WP_REST_Server::CREATABLE,
+					"callback"            => array( $this, "restore_owner_property" ),
+					"permission_callback" => array( $this, "check_owner_authenticated" ),
+				),
+			)
+		);
+
+		// POST /wp-json/apnastay/v1/owner/properties/<id>/duplicate
+		register_rest_route(
+			$this->namespace,
+			"/owner/properties/(?P<id>[a-zA-Z0-9_-]+)/duplicate",
+			array(
+				array(
+					"methods"             => WP_REST_Server::CREATABLE,
+					"callback"            => array( $this, "duplicate_owner_property" ),
+					"permission_callback" => array( $this, "check_owner_authenticated" ),
+				),
+			)
+		);
+
 		// GET, PUT/PATCH, DELETE /wp-json/apnastay/v1/properties/<id>
 		register_rest_route(
 			$this->namespace,
@@ -322,23 +387,83 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response
 	 */
 	public function get_properties( $request ) {
+		$city_param = $request->get_param( 'city' );
+		$limit      = $request->get_param( 'limit' ) ? (int) $request->get_param( 'limit' ) : 50;
+
 		$args = array(
 			'post_type'      => 'apnastay_property',
 			'post_status'    => 'publish',
-			'posts_per_page' => 20,
+			'posts_per_page' => $limit,
+			'orderby'        => 'date',
+			'order'          => 'DESC',
 		);
+
+		if ( ! empty( $city_param ) && 'all' !== strtolower( $city_param ) ) {
+			$args['meta_query'] = array(
+				array(
+					'key'     => '_apnastay_city',
+					'value'   => sanitize_text_field( $city_param ),
+					'compare' => 'LIKE',
+				),
+			);
+		}
 
 		$query      = new WP_Query( $args );
 		$properties = array();
 
 		foreach ( $query->posts as $post ) {
+			$prop_id   = $post->ID;
+			$prop_type = get_post_meta( $prop_id, '_apnastay_property_type', true ) ?: 'house';
+			$structure = get_post_meta( $prop_id, '_apnastay_rental_structure', true ) ?: 'entire_property';
+			$rent      = (float) get_post_meta( $prop_id, '_apnastay_rent', true );
+			$city      = get_post_meta( $prop_id, '_apnastay_city', true ) ?: '';
+			$addr1     = get_post_meta( $prop_id, '_apnastay_address_line1', true );
+			$locality  = get_post_meta( $prop_id, '_apnastay_locality', true );
+			$state     = get_post_meta( $prop_id, '_apnastay_state', true );
+			$pincode   = get_post_meta( $prop_id, '_apnastay_pincode', true );
+			$p_raw     = get_post_meta( $prop_id, '_apnastay_photos', true );
+			$photos    = $this->normalize_property_photos( is_array( $p_raw ) ? $p_raw : ( json_decode( $p_raw, true ) ?: array() ) );
+			$am_raw    = get_post_meta( $prop_id, '_apnastay_amenities', true );
+			$amenities = is_array( $am_raw ) ? $am_raw : ( json_decode( $am_raw, true ) ?: array() );
+			$cm_raw    = get_post_meta( $prop_id, '_apnastay_custom_amenities', true );
+			$custom_am = is_array( $cm_raw ) ? $cm_raw : ( json_decode( $cm_raw, true ) ?: array() );
+			$all_am    = array_merge( $amenities, $custom_am );
+
+			$cover_photo = '';
+			foreach ( $photos as $p ) {
+				if ( ! empty( $p['isCover'] ) && ! empty( $p['url'] ) ) {
+					$cover_photo = $p['url'];
+					break;
+				}
+			}
+			if ( empty( $cover_photo ) && ! empty( $photos[0]['url'] ) ) {
+				$cover_photo = $photos[0]['url'];
+			}
+
 			$properties[] = array(
-				'id'          => $post->ID,
-				'title'       => $post->post_title,
-				'description' => $post->post_content,
-				'city'        => get_post_meta( $post->ID, '_apnastay_city', true ),
-				'rent'        => (float) get_post_meta( $post->ID, '_apnastay_rent', true ),
-				'owner_id'    => (int) $post->post_author,
+				'id'                 => 'prop-' . $prop_id,
+				'numericId'          => $prop_id,
+				'title'              => $post->post_title,
+				'description'        => $post->post_content,
+				'status'             => 'published',
+				'propertyType'       => $prop_type,
+				'rentalStructure'    => $structure,
+				'city'               => $city,
+				'rent'               => $rent,
+				'price'              => $rent,
+				'pricing'            => array( 'monthlyRent' => $rent ),
+				'location'           => array(
+					'city'         => $city,
+					'locality'     => $locality ?: '',
+					'addressLine1' => $addr1 ?: '',
+					'state'        => $state ?: '',
+					'pincode'      => $pincode ?: '',
+				),
+				'coverPhotoUrl'      => $cover_photo,
+				'photos'             => $photos,
+				'amenities'          => $all_am,
+				'owner_id'           => (int) $post->post_author,
+				'publishedAt'        => get_post_meta( $prop_id, '_apnastay_published_at', true ) ?: $post->post_date_gmt,
 			);
 		}
 
@@ -621,7 +746,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 				"photos"             => $this->normalize_property_photos( is_array( $p_raw = get_post_meta( $prop_id, "_apnastay_photos", true ) ) ? $p_raw : ( json_decode( $p_raw, true ) ?: array() ) ),
 				"amenities"          => is_array( $am_raw = get_post_meta( $prop_id, "_apnastay_amenities", true ) ) ? $am_raw : ( json_decode( $am_raw, true ) ?: array() ),
 				"customAmenities"    => is_array( $cm_raw = get_post_meta( $prop_id, "_apnastay_custom_amenities", true ) ) ? $cm_raw : ( json_decode( $cm_raw, true ) ?: array() ),
-				"units"              => array(),
+				"units"              => is_array( $u_raw = get_post_meta( $prop_id, "_apnastay_units", true ) ) ? $u_raw : ( json_decode( $u_raw, true ) ?: array() ),
 				"createdAt"          => $post->post_date_gmt,
 				"updatedAt"          => $post->post_modified_gmt,
 			);
@@ -696,7 +821,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 			"photos"             => $photos,
 			"amenities"          => $amenities,
 			"customAmenities"    => $custom_amenities,
-			"units"              => array(),
+			"units"              => is_array( $u_raw = get_post_meta( $post_id, "_apnastay_units", true ) ) ? $u_raw : ( json_decode( $u_raw, true ) ?: array() ),
 			"createdAt"          => $post->post_date_gmt,
 			"updatedAt"          => $post->post_modified_gmt,
 		);
@@ -762,6 +887,10 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 			update_post_meta( $post_id, "_apnastay_custom_amenities", array_values( array_unique( $params["customAmenities"] ) ) );
 		}
 
+		if ( isset( $params["units"] ) && is_array( $params["units"] ) ) {
+			update_post_meta( $post_id, "_apnastay_units", $params["units"] );
+		}
+
 		if ( isset( $params["location"] ) && is_array( $params["location"] ) ) {
 			if ( isset( $params["location"]["addressLine1"] ) ) {
 				update_post_meta( $post_id, "_apnastay_address_line1", sanitize_text_field( $params["location"]["addressLine1"] ) );
@@ -822,6 +951,10 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		if ( ( ! empty( $stored_am ) && is_array( $stored_am ) && count( $stored_am ) > 0 ) ||
 		     ( ! empty( $stored_cm ) && is_array( $stored_cm ) && count( $stored_cm ) > 0 ) ) {
 			$score += 10;
+		}
+		$stored_units = get_post_meta( $post_id, "_apnastay_units", true );
+		if ( ! empty( $stored_units ) && is_array( $stored_units ) && count( $stored_units ) > 0 ) {
+			$score += 23;
 		}
 		update_post_meta( $post_id, "_apnastay_completeness_score", min( 100, $score ) );
 
@@ -1092,4 +1225,171 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		return new WP_REST_Response( array( "success" => true, "data" => $norm_up ? $norm_up[0] : null ), 200 );
 	}
 
+	/**
+	 * Publish owner property.
+	 */
+	public function publish_owner_property( $request ) {
+		$raw_id  = $request["id"];
+		$post_id = (int) str_replace( "prop-", "", $raw_id );
+		$post    = get_post( $post_id );
+
+		if ( ! $post || "apnastay_property" !== $post->post_type ) {
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+		}
+
+		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+		}
+
+		wp_update_post( array(
+			"ID"          => $post_id,
+			"post_status" => "publish",
+		) );
+
+		$now = current_time( "mysql", true );
+		update_post_meta( $post_id, "_apnastay_published_at", $now );
+		delete_post_meta( $post_id, "_apnastay_is_unpublished" );
+		delete_post_meta( $post_id, "_apnastay_is_archived" );
+
+		return $this->get_owner_property_by_id( $request );
+	}
+
+	/**
+	 * Unpublish owner property.
+	 */
+	public function unpublish_owner_property( $request ) {
+		$raw_id  = $request["id"];
+		$post_id = (int) str_replace( "prop-", "", $raw_id );
+		$post    = get_post( $post_id );
+
+		if ( ! $post || "apnastay_property" !== $post->post_type ) {
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+		}
+
+		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+		}
+
+		wp_update_post( array(
+			"ID"          => $post_id,
+			"post_status" => "draft",
+		) );
+		update_post_meta( $post_id, "_apnastay_is_unpublished", 1 );
+
+		return $this->get_owner_property_by_id( $request );
+	}
+
+	/**
+	 * Archive owner property.
+	 */
+	public function archive_owner_property( $request ) {
+		$raw_id  = $request["id"];
+		$post_id = (int) str_replace( "prop-", "", $raw_id );
+		$post    = get_post( $post_id );
+
+		if ( ! $post || "apnastay_property" !== $post->post_type ) {
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+		}
+
+		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+		}
+
+		wp_update_post( array(
+			"ID"          => $post_id,
+			"post_status" => "trash",
+		) );
+		update_post_meta( $post_id, "_apnastay_is_archived", 1 );
+
+		return $this->get_owner_property_by_id( $request );
+	}
+
+	/**
+	 * Restore owner property.
+	 */
+	public function restore_owner_property( $request ) {
+		$raw_id  = $request["id"];
+		$post_id = (int) str_replace( "prop-", "", $raw_id );
+		$post    = get_post( $post_id );
+
+		if ( ! $post || "apnastay_property" !== $post->post_type ) {
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+		}
+
+		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+		}
+
+		wp_update_post( array(
+			"ID"          => $post_id,
+			"post_status" => "draft",
+		) );
+		delete_post_meta( $post_id, "_apnastay_is_archived" );
+		delete_post_meta( $post_id, "_apnastay_is_unpublished" );
+
+		return $this->get_owner_property_by_id( $request );
+	}
+
+	/**
+	 * Duplicate owner property.
+	 */
+	public function duplicate_owner_property( $request ) {
+		$raw_id  = $request["id"];
+		$post_id = (int) str_replace( "prop-", "", $raw_id );
+		$post    = get_post( $post_id );
+
+		if ( ! $post || "apnastay_property" !== $post->post_type ) {
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+		}
+
+		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+		}
+
+		$new_post_id = wp_insert_post( array(
+			"post_title"   => $post->post_title . " (Copy)",
+			"post_content" => $post->post_content,
+			"post_status"  => "draft",
+			"post_type"    => "apnastay_property",
+			"post_author"  => get_current_user_id(),
+		) );
+
+		if ( is_wp_error( $new_post_id ) ) {
+			return $new_post_id;
+		}
+
+		$meta_keys = array(
+			"_apnastay_property_type",
+			"_apnastay_custom_property_type",
+			"_apnastay_rental_structure",
+			"_apnastay_rent",
+			"_apnastay_city",
+			"_apnastay_address_line1",
+			"_apnastay_locality",
+			"_apnastay_state",
+			"_apnastay_pincode",
+			"_apnastay_landmark",
+			"_apnastay_latitude",
+			"_apnastay_longitude",
+			"_apnastay_hide_exact_address",
+			"_apnastay_availability",
+			"_apnastay_photos",
+			"_apnastay_amenities",
+			"_apnastay_custom_amenities",
+			"_apnastay_units",
+			"_apnastay_rules",
+			"_apnastay_completeness_score",
+		);
+
+		foreach ( $meta_keys as $mk ) {
+			$val = get_post_meta( $post_id, $mk, true );
+			if ( ! empty( $val ) ) {
+				update_post_meta( $new_post_id, $mk, $val );
+			}
+		}
+
+		$req = new WP_REST_Request( "GET", "/apnastay/v1/owner/properties/prop-" . $new_post_id );
+		$req->set_param( "id", "prop-" . $new_post_id );
+		return $this->get_owner_property_by_id( $req );
+	}
 }

@@ -127,6 +127,22 @@ class ApnaStay_Meta {
 			)
 		);
 
+		// Property Units & Rooms Array (Phase 7)
+		register_post_meta(
+			'apnastay_property',
+			'_apnastay_units',
+			array(
+				'show_in_rest' => array(
+					'schema' => array(
+						'type'  => 'array',
+						'items' => array( 'type' => 'object' ),
+					),
+				),
+				'single'       => true,
+				'type'         => 'array',
+			)
+		);
+
 		// Property Photos Array (Phase 5)
 		register_post_meta(
 			'apnastay_property',
