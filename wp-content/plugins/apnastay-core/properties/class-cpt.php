@@ -2,7 +2,7 @@
 /**
  * ApnaStay Custom Post Types & Taxonomies.
  *
- * @package ApnaStay_Properties
+ * @package ApnaStay_Core
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -31,16 +31,16 @@ class ApnaStay_CPT {
 			'apnastay_property',
 			array(
 				'labels'          => array(
-					'name'               => __( 'Properties', 'apnastay-properties' ),
-					'singular_name'      => __( 'Property', 'apnastay-properties' ),
-					'add_new'            => __( 'Add New Property', 'apnastay-properties' ),
-					'add_new_item'       => __( 'Add New Property', 'apnastay-properties' ),
-					'edit_item'          => __( 'Edit Property', 'apnastay-properties' ),
-					'new_item'           => __( 'New Property', 'apnastay-properties' ),
-					'view_item'          => __( 'View Property', 'apnastay-properties' ),
-					'search_items'       => __( 'Search Properties', 'apnastay-properties' ),
-					'not_found'          => __( 'No properties found', 'apnastay-properties' ),
-					'not_found_in_trash' => __( 'No properties found in Trash', 'apnastay-properties' ),
+					'name'               => __( 'Properties', 'apnastay-core' ),
+					'singular_name'      => __( 'Property', 'apnastay-core' ),
+					'add_new'            => __( 'Add New Property', 'apnastay-core' ),
+					'add_new_item'       => __( 'Add New Property', 'apnastay-core' ),
+					'edit_item'          => __( 'Edit Property', 'apnastay-core' ),
+					'new_item'           => __( 'New Property', 'apnastay-core' ),
+					'view_item'          => __( 'View Property', 'apnastay-core' ),
+					'search_items'       => __( 'Search Properties', 'apnastay-core' ),
+					'not_found'          => __( 'No properties found', 'apnastay-core' ),
+					'not_found_in_trash' => __( 'No properties found in Trash', 'apnastay-core' ),
 				),
 				'public'          => true,
 				'show_ui'         => true,
@@ -63,10 +63,10 @@ class ApnaStay_CPT {
 			'apnastay_unit',
 			array(
 				'labels'          => array(
-					'name'          => __( 'Units & Rooms', 'apnastay-properties' ),
-					'singular_name' => __( 'Unit / Room', 'apnastay-properties' ),
-					'add_new_item'  => __( 'Add New Unit', 'apnastay-properties' ),
-					'edit_item'     => __( 'Edit Unit', 'apnastay-properties' ),
+					'name'          => __( 'Units & Rooms', 'apnastay-core' ),
+					'singular_name' => __( 'Unit / Room', 'apnastay-core' ),
+					'add_new_item'  => __( 'Add New Unit', 'apnastay-core' ),
+					'edit_item'     => __( 'Edit Unit', 'apnastay-core' ),
 				),
 				'public'          => false,
 				'show_ui'         => true,
@@ -90,7 +90,7 @@ class ApnaStay_CPT {
 			array( 'apnastay_property' ),
 			array(
 				'hierarchical' => false,
-				'label'        => __( 'Property Categories', 'apnastay-properties' ),
+				'label'        => __( 'Property Categories', 'apnastay-core' ),
 				'show_in_rest' => true,
 				'show_ui'      => true,
 				'rewrite'      => array( 'slug' => 'property-category' ),
@@ -103,7 +103,7 @@ class ApnaStay_CPT {
 			array( 'apnastay_property' ),
 			array(
 				'hierarchical' => false,
-				'label'        => __( 'Amenities', 'apnastay-properties' ),
+				'label'        => __( 'Amenities', 'apnastay-core' ),
 				'show_in_rest' => true,
 				'show_ui'      => true,
 				'rewrite'      => array( 'slug' => 'property-amenity' ),

@@ -2,7 +2,7 @@
 /**
  * Next.js ISR On-Demand Cache Revalidation Webhook Trigger.
  *
- * @package ApnaStay_Webhooks
+ * @package ApnaStay_Core
  */
 
 if ( ! defined( 'ABSPATH' ) ) {

@@ -3,7 +3,7 @@
  * ApnaStay Tenant REST API Controller.
  * Enforces backend RBAC security boundaries using server-side current_user_can() capability checks.
  *
- * @package ApnaStay_Properties
+ * @package ApnaStay_Core
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -90,7 +90,7 @@ class ApnaStay_Tenant_Controller extends WP_REST_Controller {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
 				'unauthorized',
-				__( 'You must be logged in to manage your wishlist.', 'apnastay-properties' ),
+				__( 'You must be logged in to manage your wishlist.', 'apnastay-core' ),
 				array( 'status' => 401 )
 			);
 		}
@@ -98,7 +98,7 @@ class ApnaStay_Tenant_Controller extends WP_REST_Controller {
 		if ( ! current_user_can( 'apnastay_manage_wishlist' ) ) {
 			return new WP_Error(
 				'rest_forbidden',
-				__( 'You do not have permission to manage wishlist. This operation requires a tenant account.', 'apnastay-properties' ),
+				__( 'You do not have permission to manage wishlist. This operation requires a tenant account.', 'apnastay-core' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -117,7 +117,7 @@ class ApnaStay_Tenant_Controller extends WP_REST_Controller {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
 				'unauthorized',
-				__( 'You must be logged in to view booked visits.', 'apnastay-properties' ),
+				__( 'You must be logged in to view booked visits.', 'apnastay-core' ),
 				array( 'status' => 401 )
 			);
 		}
@@ -125,7 +125,7 @@ class ApnaStay_Tenant_Controller extends WP_REST_Controller {
 		if ( ! current_user_can( 'apnastay_book_visit' ) ) {
 			return new WP_Error(
 				'rest_forbidden',
-				__( 'You do not have permission to view tenant visits.', 'apnastay-properties' ),
+				__( 'You do not have permission to view tenant visits.', 'apnastay-core' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -171,7 +171,7 @@ class ApnaStay_Tenant_Controller extends WP_REST_Controller {
 		if ( ! $property_id ) {
 			return new WP_Error(
 				'invalid_property',
-				__( 'A valid property ID is required.', 'apnastay-properties' ),
+				__( 'A valid property ID is required.', 'apnastay-core' ),
 				array( 'status' => 400 )
 			);
 		}
@@ -189,7 +189,7 @@ class ApnaStay_Tenant_Controller extends WP_REST_Controller {
 		return new WP_REST_Response(
 			array(
 				'success'  => true,
-				'message'  => __( 'Property added to wishlist.', 'apnastay-properties' ),
+				'message'  => __( 'Property added to wishlist.', 'apnastay-core' ),
 				'wishlist' => array_values( array_unique( $wishlist ) ),
 			),
 			200
@@ -217,7 +217,7 @@ class ApnaStay_Tenant_Controller extends WP_REST_Controller {
 		return new WP_REST_Response(
 			array(
 				'success'  => true,
-				'message'  => __( 'Property removed from wishlist.', 'apnastay-properties' ),
+				'message'  => __( 'Property removed from wishlist.', 'apnastay-core' ),
 				'wishlist' => $wishlist,
 			),
 			200

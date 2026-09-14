@@ -62,5 +62,17 @@ class ApnaStay_API {
 		// Register Permission Matrix Test Controller (Phase 24).
 		$permission_controller = new ApnaStay_Permission_Controller();
 		$permission_controller->register_routes();
+
+		// Register Property Controller.
+		if ( class_exists( 'ApnaStay_Property_Controller' ) ) {
+			$property_controller = new ApnaStay_Property_Controller();
+			$property_controller->register_routes();
+		}
+
+		// Register Tenant Controller.
+		if ( class_exists( 'ApnaStay_Tenant_Controller' ) ) {
+			$tenant_controller = new ApnaStay_Tenant_Controller();
+			$tenant_controller->register_routes();
+		}
 	}
 }
