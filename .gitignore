@@ -55,19 +55,22 @@ wp-content/object-cache.php
 wp-content/mu-plugins/
 
 # --------------------------
-# 🔴 3rd-Party Plugins & Themes (install via WP or Composer)
+# 🔴 3rd-Party Plugins & Themes (Fixed Syntax)
 # --------------------------
-wp-content/plugins/*
+# Ignore all folders inside plugins, but look inside them for exceptions
+wp-content/plugins/*/
 !wp-content/plugins/apnastay-core/
 !wp-content/plugins/apnastay-properties/
 !wp-content/plugins/apnastay-webhooks/
 
-wp-content/themes/*
+# Ignore all folders inside themes, but look inside for exceptions
+wp-content/themes/*/
 !wp-content/themes/apnastay/
-!wp-content/themes/index.php
 
-# wp-content root index (WordPress default, not custom)
+# wp-content root files and default indexes
 wp-content/index.php
+wp-content/plugins/index.php
+wp-content/themes/index.php
 
 # --------------------------
 # 🟡 OS & Editor files

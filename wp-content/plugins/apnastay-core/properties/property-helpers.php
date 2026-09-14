@@ -2,7 +2,7 @@
 /**
  * ApnaStay Properties Helper & Business Rules Functions.
  *
- * @package ApnaStay_Properties
+ * @package ApnaStay_Core
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -27,7 +27,7 @@ if ( ! function_exists( 'apnastay_verify_resource_ownership' ) ) {
 		if ( ! $user_id ) {
 			return new WP_Error(
 				'unauthorized',
-				__( 'You must be logged in to modify this resource.', 'apnastay-properties' ),
+				__( 'You must be logged in to modify this resource.', 'apnastay-core' ),
 				array( 'status' => 401 )
 			);
 		}
@@ -41,7 +41,7 @@ if ( ! function_exists( 'apnastay_verify_resource_ownership' ) ) {
 		if ( ! $post ) {
 			return new WP_Error(
 				'not_found',
-				__( 'Resource not found.', 'apnastay-properties' ),
+				__( 'Resource not found.', 'apnastay-core' ),
 				array( 'status' => 404 )
 			);
 		}
@@ -54,7 +54,7 @@ if ( ! function_exists( 'apnastay_verify_resource_ownership' ) ) {
 		if ( $owner_id !== (int) $user_id ) {
 			return new WP_Error(
 				'forbidden',
-				__( 'You cannot edit this property as you are not the owner.', 'apnastay-properties' ),
+				__( 'You cannot edit this property as you are not the owner.', 'apnastay-core' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -89,7 +89,7 @@ if ( ! function_exists( 'apnastay_validate_property_publication' ) ) {
 			if ( 'verified' !== strtolower( trim( (string) $verification_status ) ) ) {
 				return new WP_Error(
 					'owner_not_verified',
-					__( 'Business Rule Violation: Owner account must be KYC-verified before publishing a property listing.', 'apnastay-properties' ),
+					__( 'Business Rule Violation: Owner account must be KYC-verified before publishing a property listing.', 'apnastay-core' ),
 					array( 'status' => 403 )
 				);
 			}
@@ -104,7 +104,7 @@ if ( ! function_exists( 'apnastay_validate_property_publication' ) ) {
 		if ( strlen( $title ) < 5 ) {
 			return new WP_Error(
 				'invalid_property_title',
-				__( 'Business Rule Violation: Property title must be at least 5 characters long.', 'apnastay-properties' ),
+				__( 'Business Rule Violation: Property title must be at least 5 characters long.', 'apnastay-core' ),
 				array( 'status' => 422 )
 			);
 		}
@@ -112,7 +112,7 @@ if ( ! function_exists( 'apnastay_validate_property_publication' ) ) {
 		if ( strlen( $description ) < 20 ) {
 			return new WP_Error(
 				'invalid_property_description',
-				__( 'Business Rule Violation: Property description must be at least 20 characters long to provide adequate information for tenants.', 'apnastay-properties' ),
+				__( 'Business Rule Violation: Property description must be at least 20 characters long to provide adequate information for tenants.', 'apnastay-core' ),
 				array( 'status' => 422 )
 			);
 		}
@@ -120,7 +120,7 @@ if ( ! function_exists( 'apnastay_validate_property_publication' ) ) {
 		if ( $rent < 1000 ) {
 			return new WP_Error(
 				'invalid_property_rent',
-				__( 'Business Rule Violation: Minimum monthly rent must be at least ₹1,000 to publish a verified listing.', 'apnastay-properties' ),
+				__( 'Business Rule Violation: Minimum monthly rent must be at least ₹1,000 to publish a verified listing.', 'apnastay-core' ),
 				array( 'status' => 422 )
 			);
 		}
@@ -128,7 +128,7 @@ if ( ! function_exists( 'apnastay_validate_property_publication' ) ) {
 		if ( empty( $city ) ) {
 			return new WP_Error(
 				'invalid_property_city',
-				__( 'Business Rule Violation: Property city is required.', 'apnastay-properties' ),
+				__( 'Business Rule Violation: Property city is required.', 'apnastay-core' ),
 				array( 'status' => 422 )
 			);
 		}

@@ -27,6 +27,12 @@ class ApnaStay_Activator {
 		// Migrate legacy users and ensure role consistency.
 		ApnaStay_Roles::migrate_legacy_users();
 
+		// Register Custom Post Types and Taxonomies.
+		if ( class_exists( 'ApnaStay_CPT' ) ) {
+			ApnaStay_CPT::register_post_types();
+			ApnaStay_CPT::register_taxonomies();
+		}
+
 		// Flush rewrite rules after custom routes or post types are registered.
 		flush_rewrite_rules();
 	}

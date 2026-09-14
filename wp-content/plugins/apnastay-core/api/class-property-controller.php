@@ -3,7 +3,7 @@
  * ApnaStay Property REST API Controller.
  * Enforces real backend RBAC security boundaries using current_user_can() capability checks.
  *
- * @package ApnaStay_Properties
+ * @package ApnaStay_Core
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -235,7 +235,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
 				'unauthorized',
-				__( 'You must be logged in to list a property.', 'apnastay-properties' ),
+				__( 'You must be logged in to list a property.', 'apnastay-core' ),
 				array( 'status' => 401 )
 			);
 		}
@@ -243,7 +243,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		if ( ! current_user_can( 'apnastay_create_property' ) ) {
 			return new WP_Error(
 				'rest_forbidden',
-				__( 'You do not have permission to create property listings.', 'apnastay-properties' ),
+				__( 'You do not have permission to create property listings.', 'apnastay-core' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -261,7 +261,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
 				'unauthorized',
-				__( 'You must be logged in to edit a property.', 'apnastay-properties' ),
+				__( 'You must be logged in to edit a property.', 'apnastay-core' ),
 				array( 'status' => 401 )
 			);
 		}
@@ -269,7 +269,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		if ( ! current_user_can( 'apnastay_edit_own_property' ) && ! current_user_can( 'apnastay_manage_properties' ) ) {
 			return new WP_Error(
 				'rest_forbidden',
-				__( 'You do not have permission to edit this property.', 'apnastay-properties' ),
+				__( 'You do not have permission to edit this property.', 'apnastay-core' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -293,7 +293,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
 				'unauthorized',
-				__( 'You must be logged in to delete a property.', 'apnastay-properties' ),
+				__( 'You must be logged in to delete a property.', 'apnastay-core' ),
 				array( 'status' => 401 )
 			);
 		}
@@ -301,7 +301,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		if ( ! current_user_can( 'apnastay_delete_own_property' ) && ! current_user_can( 'apnastay_manage_properties' ) ) {
 			return new WP_Error(
 				'rest_forbidden',
-				__( 'You do not have permission to delete this property.', 'apnastay-properties' ),
+				__( 'You do not have permission to delete this property.', 'apnastay-core' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -356,7 +356,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		if ( is_wp_error( $post_id ) ) {
 			return new WP_Error(
 				'create_failed',
-				__( 'Failed to create property listing.', 'apnastay-properties' ),
+				__( 'Failed to create property listing.', 'apnastay-core' ),
 				array( 'status' => 500 )
 			);
 		}
@@ -483,7 +483,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		if ( ! $post || 'apnastay_property' !== $post->post_type ) {
 			return new WP_Error(
 				'not_found',
-				__( 'Property not found.', 'apnastay-properties' ),
+				__( 'Property not found.', 'apnastay-core' ),
 				array( 'status' => 404 )
 			);
 		}
@@ -511,7 +511,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$post    = get_post( $post_id );
 
 		if ( ! $post || 'apnastay_property' !== $post->post_type ) {
-			return new WP_Error( 'not_found', __( 'Property not found.', 'apnastay-properties' ), array( 'status' => 404 ) );
+			return new WP_Error( 'not_found', __( 'Property not found.', 'apnastay-core' ), array( 'status' => 404 ) );
 		}
 
 		$params = $request->get_json_params();
@@ -567,7 +567,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$post    = get_post( $post_id );
 
 		if ( ! $post || 'apnastay_property' !== $post->post_type ) {
-			return new WP_Error( 'not_found', __( 'Property not found.', 'apnastay-properties' ), array( 'status' => 404 ) );
+			return new WP_Error( 'not_found', __( 'Property not found.', 'apnastay-core' ), array( 'status' => 404 ) );
 		}
 
 		wp_delete_post( $post_id, true );
@@ -582,7 +582,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
 				"unauthorized",
-				__( "You must be logged in to manage owner properties.", "apnastay-properties" ),
+				__( "You must be logged in to manage owner properties.", "apnastay-core" ),
 				array( "status" => 401 )
 			);
 		}
@@ -764,11 +764,11 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$post    = get_post( $post_id );
 
 		if ( ! $post || "apnastay_property" !== $post->post_type ) {
-			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-core" ), array( "status" => 404 ) );
 		}
 
 		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
-			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-core" ), array( "status" => 403 ) );
 		}
 
 		$prop_type = get_post_meta( $post_id, "_apnastay_property_type", true ) ?: "house";
@@ -838,11 +838,11 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$post    = get_post( $post_id );
 
 		if ( ! $post || "apnastay_property" !== $post->post_type ) {
-			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-core" ), array( "status" => 404 ) );
 		}
 
 		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
-			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-core" ), array( "status" => 403 ) );
 		}
 
 		$params = $request->get_json_params();
@@ -1006,11 +1006,11 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$post    = get_post( $post_id );
 
 		if ( ! $post || "apnastay_property" !== $post->post_type ) {
-			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-core" ), array( "status" => 404 ) );
 		}
 
 		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
-			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-core" ), array( "status" => 403 ) );
 		}
 
 		$photos_raw = get_post_meta( $post_id, "_apnastay_photos", true );
@@ -1093,11 +1093,11 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$post     = get_post( $post_id );
 
 		if ( ! $post || "apnastay_property" !== $post->post_type ) {
-			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-core" ), array( "status" => 404 ) );
 		}
 
 		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
-			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-core" ), array( "status" => 403 ) );
 		}
 
 		$photos_raw = get_post_meta( $post_id, "_apnastay_photos", true );
@@ -1114,7 +1114,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		}
 
 		if ( $found_index === -1 ) {
-			return new WP_Error( "not_found", __( "Photo not found.", "apnastay-properties" ), array( "status" => 404 ) );
+			return new WP_Error( "not_found", __( "Photo not found.", "apnastay-core" ), array( "status" => 404 ) );
 		}
 
 		array_splice( $photos, $found_index, 1 );
@@ -1141,11 +1141,11 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$post    = get_post( $post_id );
 
 		if ( ! $post || "apnastay_property" !== $post->post_type ) {
-			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-core" ), array( "status" => 404 ) );
 		}
 
 		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
-			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-core" ), array( "status" => 403 ) );
 		}
 
 		$params = $request->get_json_params();
@@ -1189,11 +1189,11 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$post     = get_post( $post_id );
 
 		if ( ! $post || "apnastay_property" !== $post->post_type ) {
-			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-core" ), array( "status" => 404 ) );
 		}
 
 		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
-			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-core" ), array( "status" => 403 ) );
 		}
 
 		$params = $request->get_json_params();
@@ -1234,11 +1234,11 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$post    = get_post( $post_id );
 
 		if ( ! $post || "apnastay_property" !== $post->post_type ) {
-			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-core" ), array( "status" => 404 ) );
 		}
 
 		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
-			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-core" ), array( "status" => 403 ) );
 		}
 
 		wp_update_post( array(
@@ -1263,11 +1263,11 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$post    = get_post( $post_id );
 
 		if ( ! $post || "apnastay_property" !== $post->post_type ) {
-			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-core" ), array( "status" => 404 ) );
 		}
 
 		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
-			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-core" ), array( "status" => 403 ) );
 		}
 
 		wp_update_post( array(
@@ -1288,11 +1288,11 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$post    = get_post( $post_id );
 
 		if ( ! $post || "apnastay_property" !== $post->post_type ) {
-			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-core" ), array( "status" => 404 ) );
 		}
 
 		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
-			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-core" ), array( "status" => 403 ) );
 		}
 
 		wp_update_post( array(
@@ -1313,11 +1313,11 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$post    = get_post( $post_id );
 
 		if ( ! $post || "apnastay_property" !== $post->post_type ) {
-			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-core" ), array( "status" => 404 ) );
 		}
 
 		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
-			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-core" ), array( "status" => 403 ) );
 		}
 
 		wp_update_post( array(
@@ -1339,11 +1339,11 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		$post    = get_post( $post_id );
 
 		if ( ! $post || "apnastay_property" !== $post->post_type ) {
-			return new WP_Error( "not_found", __( "Property not found.", "apnastay-properties" ), array( "status" => 404 ) );
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-core" ), array( "status" => 404 ) );
 		}
 
 		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
-			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-properties" ), array( "status" => 403 ) );
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-core" ), array( "status" => 403 ) );
 		}
 
 		$new_post_id = wp_insert_post( array(

@@ -2,7 +2,7 @@
 /**
  * ApnaStay Properties Meta Field Registrations.
  *
- * @package ApnaStay_Properties
+ * @package ApnaStay_Core
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
