@@ -275,7 +275,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		}
 
 		// Enforce resource ownership check (Admin can bypass)
-		$ownership = apnastay_verify_resource_ownership( (int) $request['id'] );
+		$ownership = apnastay_verify_resource_ownership( (int) str_replace( 'prop-', '', $request['id'] ) );
 		if ( is_wp_error( $ownership ) ) {
 			return $ownership;
 		}
@@ -307,7 +307,7 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 		}
 
 		// Enforce resource ownership check (Admin can bypass)
-		$ownership = apnastay_verify_resource_ownership( (int) $request['id'] );
+		$ownership = apnastay_verify_resource_ownership( (int) str_replace( 'prop-', '', $request['id'] ) );
 		if ( is_wp_error( $ownership ) ) {
 			return $ownership;
 		}
@@ -477,7 +477,8 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function get_property_by_id( $request ) {
-		$post_id = (int) $request['id'];
+		$raw_id  = $request['id'];
+		$post_id = (int) str_replace( 'prop-', '', $raw_id );
 		$post    = get_post( $post_id );
 
 		if ( ! $post || 'apnastay_property' !== $post->post_type ) {
@@ -507,7 +508,8 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function update_property( $request ) {
-		$post_id = (int) $request['id'];
+		$raw_id  = $request['id'];
+		$post_id = (int) str_replace( 'prop-', '', $raw_id );
 		$post    = get_post( $post_id );
 
 		if ( ! $post || 'apnastay_property' !== $post->post_type ) {
@@ -563,7 +565,8 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function delete_property( $request ) {
-		$post_id = (int) $request['id'];
+		$raw_id  = $request['id'];
+		$post_id = (int) str_replace( 'prop-', '', $raw_id );
 		$post    = get_post( $post_id );
 
 		if ( ! $post || 'apnastay_property' !== $post->post_type ) {
@@ -572,7 +575,18 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 
 		wp_delete_post( $post_id, true );
 
-		return new WP_REST_Response( array( 'deleted' => true, 'id' => $post_id ), 200 );
+		return new WP_REST_Response(
+			array(
+				'success' => true,
+				'data'    => array(
+					'id'      => $raw_id,
+					'deleted' => true,
+				),
+				'deleted' => true,
+				'id'      => $post_id,
+			),
+			200
+		);
 	}
 
 	/**
@@ -962,10 +976,37 @@ class ApnaStay_Property_Controller extends WP_REST_Controller {
 	}
 
 	/**
-	 * Delete owner property.
+	 * Permanently delete owner property.
 	 */
 	public function delete_owner_property( $request ) {
-		return $this->delete_property( $request );
+		$raw_id  = $request["id"];
+		$post_id = (int) str_replace( "prop-", "", $raw_id );
+		$post    = get_post( $post_id );
+
+		if ( ! $post || "apnastay_property" !== $post->post_type ) {
+			return new WP_Error( "not_found", __( "Property not found.", "apnastay-core" ), array( "status" => 404 ) );
+		}
+
+		if ( (int) $post->post_author !== get_current_user_id() && ! current_user_can( "administrator" ) ) {
+			return new WP_Error( "forbidden", __( "You do not own this property.", "apnastay-core" ), array( "status" => 403 ) );
+		}
+
+		$deleted = wp_delete_post( $post_id, true );
+
+		if ( ! $deleted ) {
+			return new WP_Error( "delete_failed", __( "Failed to delete property.", "apnastay-core" ), array( "status" => 500 ) );
+		}
+
+		return new WP_REST_Response(
+			array(
+				"success" => true,
+				"data"    => array(
+					"id"      => $raw_id,
+					"deleted" => true,
+				),
+			),
+			200
+		);
 	}
 
 	/**
